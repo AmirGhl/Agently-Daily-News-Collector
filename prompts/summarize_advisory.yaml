@@ -1,0 +1,27 @@
+input: ${news_content}
+info:
+  advisory_title: ${news_title}
+  column_requirement: ${column_requirement}
+  language: ${language}
+  tone: ${tone_instruction}
+  reader: ${reader_context}
+instruct:
+  - You are warning a fellow developer about the security advisory {info.advisory_title}.
+  - "{info.tone}"
+  - "{info.reader}"
+  - Read the advisory details in {input}.
+  - "CRITICAL: never open with a greeting or preamble (no 'سلام', 'Hello', 'خب'...); start directly with the affected package."
+  - Keep package names, version ranges, and CVE identifiers in their original English form.
+  - Write in {info.language}, in flowing prose (no bullet lists), covering -
+  - 1. which package and versions are affected, and how severe it really is
+  - 2. what an attacker can actually do (plain-language impact, not CVSS jargon)
+  - 3. the concrete action to take - the fixed version to upgrade to, or the workaround if no fix exists
+  - 3 to 6 sentences. Stay factual and calm; never exaggerate beyond what the advisory states.
+  - Set can_summarize to false only if the advisory content is empty or unusable.
+output:
+  can_summarize:
+    $type: bool
+    $desc: whether the advisory had enough substance to summarize
+  summary:
+    $type: str
+    $desc: conversational affected-versions-impact-action summary in {info.language}

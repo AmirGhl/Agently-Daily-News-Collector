@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" data-theme="ink">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>سردبیر</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#141312">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;800&family=Noto+Naskh+Arabic:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* ————————————————————————————————————————————————
+   سردبیر — جوهر و کاغذ
+   Two pages. One accent. Hairlines, not boxes.
+   ———————————————————————————————————————————————— */
+:root{
+  --bg:#141312; --surface:#1a1917; --well:#211f1c;
+  --line:#2b2926; --linehi:#3e3a34;
+  --ink:#ece7dc; --dim:#a49e90; --faint:#706b5e;
+  --accent:#e2603f; --accent-dim:#b34a39;
+  --ok:#5cae89; --warn:#c9a04a; --bad:#d95c6a;
+  --mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+  --sans:'Vazirmatn','Segoe UI',Tahoma,sans-serif;
+  --serif:'Noto Naskh Arabic','Vazirmatn',serif;
+  --grain:.028;
+}
+[data-theme="paper"]{
+  --bg:#f5f1e6; --surface:#fbf8f0; --well:#ece7d8;
+  --line:#ddd7c6; --linehi:#c4bda8;
+  --ink:#201d17; --dim:#5d574a; --faint:#948d78;
+  --accent:#b32d15; --accent-dim:#d4553f;
+  --ok:#1e7d52; --warn:#8a6d1f; --bad:#b03246;
+  --grain:.05;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scrollbar-color:var(--linehi) transparent;scroll-behavior:smooth}
+body{
+  font-family:var(--sans); background:var(--bg); color:var(--ink);
+  font-size:14px; line-height:1.8; min-height:100dvh;
+  -webkit-font-smoothing:antialiased;
+  transition:background .25s ease,color .25s ease;
+}
+/* paper grain — the whole "ink & paper" feel in one layer */
+body::after{
+  content:"";position:fixed;inset:0;z-index:99;pointer-events:none;
+  opacity:var(--grain);
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+::selection{background:color-mix(in srgb,var(--accent) 25%,transparent)}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input,select{font:inherit;color:inherit}
+a{color:inherit}
+.mono{font-family:var(--mono)}
+:focus-visible{outline:1.5px solid var(--accent);outline-offset:3px;border-radius:2px}
+
+.wrap{max-width:660px;margin-inline:auto;padding:0 22px}
+
+/* ———— top bar ———— */
+header{
+  position:sticky;top:0;z-index:10;
+  background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(8px);
+  border-bottom:3px double var(--linehi);
+}
+.bar{display:flex;align-items:center;gap:14px;height:54px}
+.masthead{font-family:var(--serif);font-size:19px;font-weight:700;cursor:pointer;line-height:1}
+.masthead i{font-style:normal;color:var(--accent)}
+.bar .date{font-size:11px;color:var(--faint)}
+.bar .sp{flex:1}
+.status{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--dim)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--ok);flex-shrink:0}
+.dot.busy{background:var(--accent);animation:blink 1.4s ease-in-out infinite}
+@keyframes blink{50%{opacity:.3}}
+.iconbtn{
+  width:32px;height:32px;display:grid;place-items:center;border-radius:8px;
+  color:var(--faint);transition:color .15s,background .15s;flex-shrink:0;
+}
+.iconbtn:hover{color:var(--ink);background:var(--well)}
+.iconbtn svg{width:15px;height:15px}
+
+/* ———— views ———— */
+.view{display:none;animation:in .3s ease}
+.view.on{display:block}
+@keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ———— home: compose ———— */
+.compose{padding-top:58px}
+.compose::before{content:"";display:block;width:28px;height:2px;background:var(--accent);margin:0 auto 24px}
+.compose h1{font-family:var(--serif);font-size:clamp(21px,3.4vw,25px);font-weight:700;text-align:center;line-height:1.7}
+.compose .sub{text-align:center;font-size:11.5px;color:var(--faint);margin-top:4px}
+.field{position:relative;margin-top:34px}
+.field::before{content:"";position:absolute;inset-inline:0;bottom:0;height:1px;background:var(--linehi)}
+.field::after{
+  content:"";position:absolute;inset-inline:0;bottom:0;height:1.5px;background:var(--accent);
+  transform:scaleX(0);transform-origin:center;transition:transform .35s cubic-bezier(.22,1,.36,1);
+}
+.field:focus-within::after{transform:scaleX(1)}
+.field input{
+  width:100%;background:none;border:none;outline:none;
+  font-size:16.5px;padding:8px 0 12px;padding-inline-end:82px;color:var(--ink);
+}
+.field input::placeholder{color:var(--faint)}
+.field .go{
+  position:absolute;inset-inline-end:0;bottom:9px;
+  font-size:13px;font-weight:600;color:var(--accent);
+  padding:2px 4px;transition:opacity .15s;
+}
+.field .go:hover{opacity:.75}
+.field .go:disabled{color:var(--faint);cursor:default;opacity:.6}
+.quick{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
+  gap:4px 0;margin-top:16px;font-size:12px;color:var(--dim);
+}
+.quick button{padding:4px 9px;border-radius:6px;transition:color .15s,background .15s;color:var(--dim)}
+.quick button:hover{color:var(--ink);background:var(--well)}
+.quick button.hot{color:var(--accent)}
+.quick button.hot:hover{background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--accent)}
+.quick .sep{color:var(--line);user-select:none}
+.quick button:disabled{opacity:.45;cursor:default;background:none}
+
+/* run options */
+.opts{display:none;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:14px}
+.opts.on{display:flex;animation:in .25s ease}
+.opts select{
+  background:var(--surface);border:1px solid var(--line);border-radius:7px;
+  font-size:11.5px;color:var(--dim);padding:5px 8px;outline:none;min-height:32px;
+}
+.opts select:hover{border-color:var(--linehi)}
+.opts label{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--dim);cursor:pointer}
+.opts input[type=checkbox]{accent-color:var(--accent)}
+
+/* ———— wire (live status line) ———— */
+.wire{margin-top:44px;border-top:1px solid var(--line)}
+.stages{display:none;align-items:center;justify-content:center;gap:6px;padding:13px 0 0;font-size:11px;flex-wrap:wrap}
+.stages.on{display:flex}
+.stages b{font-weight:600;color:var(--accent)}
+.stages s{text-decoration:none;color:var(--dim)}
+.stages u{text-decoration:none;color:var(--faint);opacity:.6}
+.stages .arr{color:var(--faint);opacity:.5;font-size:10px}
+.progress{height:2px;background:var(--line);margin-top:12px;display:none;overflow:hidden;border-radius:2px}
+.progress.on{display:block}
+.progress i{display:block;height:100%;background:var(--accent);width:0%;transition:width .8s ease}
+.srcchips{display:none;justify-content:center;gap:5px;flex-wrap:wrap;padding:11px 0 0;font-family:var(--mono);font-size:8.5px;letter-spacing:.04em;direction:ltr}
+.srcchips.on{display:flex;animation:in .25s ease}
+.srcchips span{padding:2px 8px;border:1px solid var(--line);border-radius:999px;color:var(--dim)}
+.srcchips span.ok{border-color:color-mix(in srgb,var(--ok) 35%,transparent)}
+.srcchips span.fail{color:var(--faint);border-style:dashed}
+.wireline{
+  display:flex;align-items:center;gap:9px;width:100%;
+  padding:11px 2px;font-size:11px;color:var(--faint);text-align:start;
+  transition:color .15s;
+}
+.wireline:hover{color:var(--dim)}
+.wireline .txt{
+  direction:ltr;text-align:left;font-family:var(--mono);font-size:10.5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1;
+}
+.wireline .chev{font-size:9px;transition:transform .2s;flex-shrink:0}
+.wireline.open .chev{transform:rotate(180deg)}
+.term{
+  display:none;direction:ltr;text-align:left;
+  background:#131210;border:1px solid var(--line);border-radius:8px;
+  font-family:var(--mono);font-size:10.5px;line-height:1.9;color:#9d9a92;
+  height:240px;overflow-y:auto;padding:10px 14px;margin-bottom:14px;
+  white-space:pre-wrap;word-break:break-word;
+  scrollbar-width:thin;
+}
+.term.on{display:block;animation:in .2s ease}
+.term .err{color:var(--bad)} .term .okl{color:var(--ok)} .term .wrn{color:var(--warn)}
+
+/* ———— archive ———— */
+.archive{margin-top:40px;padding-bottom:80px}
+.stats{display:none;border-block:1px solid var(--line);margin-bottom:26px}
+.stats.on{display:flex;animation:rise .35s ease backwards}
+.stats>div{flex:1;text-align:center;padding:12px 4px 10px}
+.stats>div+div{border-inline-start:1px solid var(--line)}
+.stats b{font-family:var(--serif);font-size:18px;font-weight:700;display:block;line-height:1.4}
+.stats span{font-size:10px;color:var(--faint)}
+.arch-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.arch-head h2{font-family:var(--serif);font-size:16px;font-weight:700}
+.arch-head .count{font-size:11px;color:var(--faint)}
+.arch-head .sp{flex:1}
+.filters{display:flex;gap:2px;font-size:11.5px}
+.filters button{padding:3px 8px;border-radius:6px;color:var(--faint);transition:color .15s,background .15s}
+.filters button:hover{color:var(--dim)}
+.filters button.on{color:var(--ink);background:var(--well);font-weight:600}
+.search{position:relative;margin-top:14px;border-bottom:1px solid var(--line)}
+.search input{width:100%;background:none;border:none;outline:none;font-size:12.5px;padding:6px 0 8px;color:var(--ink)}
+.search input::placeholder{color:var(--faint)}
+.daygroup{margin-top:22px;animation:rise .35s ease backwards}
+.daygroup:nth-child(2){animation-delay:.04s}
+.daygroup:nth-child(3){animation-delay:.08s}
+.daygroup:nth-child(4){animation-delay:.12s}
+.daygroup:nth-child(n+5){animation-delay:.16s}
+@keyframes rise{from{opacity:0;transform:translateY(7px)}}
+.daylabel{font-size:10.5px;color:var(--faint);margin-bottom:2px;display:flex;align-items:center;gap:10px}
+.daylabel::after{content:"";flex:1;height:1px;background:var(--line)}
+.row{
+  display:flex;align-items:center;gap:12px;width:100%;
+  padding:11px 2px;text-align:start;border-bottom:1px solid var(--line);
+  transition:background .12s;border-radius:2px;
+}
+.row:hover{background:color-mix(in srgb,var(--well) 60%,transparent)}
+.row:last-child{border-bottom:none}
+.row .tag{font-family:var(--mono);font-size:8.5px;letter-spacing:.05em;width:38px;flex-shrink:0;direction:ltr;text-align:left}
+.tag.t-dev{color:var(--accent)} .tag.t-wk{color:var(--ok)} .tag.t-nw{color:var(--warn)}
+.row .ttl{flex:1;min-width:0;font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;unicode-bidi:plaintext}
+.row .fmts{display:flex;gap:8px;opacity:0;transition:opacity .15s;flex-shrink:0}
+.row:hover .fmts,.row:focus-visible .fmts,.row:focus-within .fmts{opacity:1}
+@media(hover:none){.row .fmts{opacity:.85}}
+.row .fmts a{font-family:var(--mono);font-size:9px;color:var(--faint);text-decoration:none;direction:ltr}
+.row .fmts a:hover{color:var(--accent)}
+.row .arrow{color:var(--faint);flex-shrink:0;transition:transform .15s;font-size:13px}
+.row:hover .arrow{transform:translateX(-3px);color:var(--dim)}
+.empty{padding:48px 0;text-align:center;font-size:12.5px;color:var(--faint)}
+
+/* ———— settings modal ———— */
+.modal{
+  position:fixed;inset:0;z-index:30;display:none;
+  background:color-mix(in srgb,#000 45%,transparent);
+  backdrop-filter:blur(3px);
+  align-items:flex-start;justify-content:center;
+  overflow-y:auto;padding:24px 16px 40px;
+}
+.modal.on{display:flex;animation:in .2s ease}
+.modal-card{
+  width:100%;max-width:620px;margin-top:4vh;
+  background:var(--surface);border:1px solid var(--linehi);border-radius:12px;
+  box-shadow:0 24px 70px -18px rgba(0,0,0,.55);
+  animation:mrise .3s cubic-bezier(.22,1,.36,1);
+}
+@keyframes mrise{from{opacity:0;transform:translateY(14px)}}
+.modal-head{display:flex;align-items:center;gap:10px;padding:18px 24px 0}
+.modal-head h2{font-family:var(--serif);font-size:17px;font-weight:700;flex:1}
+.modal-body{padding:0 24px 4px}
+.mh{display:flex;align-items:center;gap:10px;font-family:var(--serif);font-size:13.5px;font-weight:700;color:var(--dim);margin:22px 0 12px}
+.mh::after{content:"";flex:1;height:1px;background:var(--line)}
+.modal-foot{display:flex;align-items:center;gap:10px;padding:16px 24px 20px;border-top:1px solid var(--line);margin-top:20px;flex-wrap:wrap}
+.modal-foot .note{font-size:9.5px;color:var(--faint);flex:1;min-width:150px}
+.modal .sfield input,.modal .sfield select,.modal .sfield textarea,.modal .sched-row input,.modal .sched-row select{background:var(--bg)}
+.sfield textarea{
+  width:100%;border:1px solid var(--line);border-radius:7px;
+  padding:7px 10px;font-size:12px;outline:none;resize:vertical;
+  font-family:inherit;color:var(--ink);min-height:56px;line-height:1.9;
+  transition:border-color .15s;
+}
+.sfield textarea:focus{border-color:var(--accent)}
+.sfield textarea.ltr{direction:ltr;font-family:var(--mono);font-size:10.5px;line-height:2}
+.hint{font-weight:400;color:var(--faint);font-size:9.5px}
+@media(max-width:540px){
+  .modal{padding:0;align-items:flex-end}
+  .modal-card{margin:12vh 0 0;border-radius:14px 14px 0 0;border-inline:none;border-bottom:none;max-width:none}
+}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px}
+@media(max-width:540px){.sgrid{grid-template-columns:1fr}}
+.sfield label{display:block;font-size:10.5px;font-weight:600;color:var(--dim);margin-bottom:5px}
+.sfield input,.sfield select{
+  width:100%;background:var(--surface);border:1px solid var(--line);border-radius:7px;
+  padding:7px 10px;font-size:12px;outline:none;min-height:34px;transition:border-color .15s;
+}
+.sfield input:focus,.sfield select:focus{border-color:var(--accent)}
+.sfield input.ltr{direction:ltr;font-family:var(--mono);font-size:11px}
+.keywrap{position:relative}
+.keywrap .eye{position:absolute;inset-inline-end:4px;top:50%;translate:0 -50%;width:26px;height:26px;display:grid;place-items:center;color:var(--faint);border-radius:6px}
+.keywrap .eye:hover{color:var(--ink)}
+.keyenv{font-family:var(--mono);font-size:9px;color:var(--faint);direction:ltr;text-align:left;margin-top:4px}
+.keyenv b{color:var(--ok);font-weight:600}
+.sactions{display:flex;align-items:center;gap:10px;margin-top:18px}
+.btn{
+  font-size:12.5px;font-weight:600;padding:8px 18px;border-radius:8px;min-height:36px;
+  transition:opacity .15s,background .15s;
+}
+.btn-solid{background:var(--accent);color:#fff}
+.btn-solid:hover{opacity:.88}
+.btn-line{border:1px solid var(--line);color:var(--dim)}
+.btn-line:hover{border-color:var(--linehi);color:var(--ink)}
+.btn:disabled{opacity:.5;cursor:default}
+.testout{font-family:var(--mono);font-size:10.5px;direction:ltr;text-align:left;min-height:16px;margin-top:8px;color:var(--faint)}
+.testout.good{color:var(--ok)} .testout.err{color:var(--bad)}
+
+/* ———— schedule row (inside settings modal) ———— */
+.sched-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sched-row input[type=time],.sched-row select,.sched-row input[type=text]{
+  background:var(--surface);border:1px solid var(--line);border-radius:7px;
+  font-size:11.5px;color:var(--ink);padding:5px 8px;outline:none;min-height:32px;
+}
+.sched-row input[type=text]{flex:1;min-width:130px}
+.sched-row input:focus,.sched-row select:focus{border-color:var(--accent)}
+.swlab{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim);cursor:pointer}
+.modal input[type=checkbox]{accent-color:var(--accent)}
+
+/* ———— reader ———— */
+.readbar{position:fixed;top:0;inset-inline:0;height:2px;z-index:20;background:transparent}
+.readbar i{display:block;height:100%;width:0%;background:var(--accent)}
+.reader-top{display:flex;align-items:center;gap:10px;padding:14px 0 0}
+.backbtn{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim);padding:5px 8px;border-radius:7px}
+.backbtn:hover{color:var(--ink);background:var(--well)}
+.reader-top .sp{flex:1}
+.reader-top a{font-family:var(--mono);font-size:9.5px;color:var(--faint);text-decoration:none;direction:ltr;padding:4px 7px;border:1px solid var(--line);border-radius:6px;transition:color .15s,border-color .15s}
+.reader-top a:hover{color:var(--ink);border-color:var(--linehi)}
+.paper{padding:36px 0 90px}
+.kicker{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--faint);direction:ltr;text-align:right;display:flex;gap:14px;justify-content:flex-start;flex-wrap:wrap}
+.paper h1{font-family:var(--serif);font-size:clamp(24px,4vw,32px);font-weight:700;line-height:1.65;margin-top:10px;unicode-bidi:plaintext}
+.rule{border:none;border-top:1px solid var(--line);margin:22px 0}
+.rule.dbl{border-top:3px double var(--linehi);margin:18px 0 26px}
+.tldr{border-block:1px solid var(--line);padding:18px 0 20px;margin-bottom:8px}
+.tldr h2{font-family:var(--serif);font-size:14px;font-weight:700;color:var(--dim);margin-bottom:12px}
+.tldr ol{list-style:none;display:flex;flex-direction:column;gap:10px}
+.tldr li{display:flex;gap:12px;font-size:13.5px;color:var(--dim);line-height:1.95}
+.tldr li i{font-style:normal;font-family:var(--mono);font-size:11px;color:var(--accent);margin-top:3px;flex-shrink:0}
+.tldr li span{unicode-bidi:plaintext}
+.toc{display:flex;flex-wrap:wrap;gap:7px 20px;padding:14px 0 16px;border-bottom:1px solid var(--line);font-size:12px}
+.toc a{display:flex;gap:7px;align-items:baseline;color:var(--dim);text-decoration:none;transition:color .15s}
+.toc a:hover{color:var(--accent)}
+.toc i{font-style:normal;font-family:var(--mono);font-size:9px;color:var(--accent)}
+.colhead{display:flex;align-items:baseline;gap:11px;margin:38px 0 6px;scroll-margin-top:70px}
+.colhead .n{font-family:var(--mono);font-size:10px;color:var(--accent)}
+.colhead h2{font-family:var(--serif);font-size:18px;font-weight:700;unicode-bidi:plaintext;line-height:1.6}
+.colhead::after{content:"";flex:1;height:1px;background:var(--line);align-self:center}
+.prologue{font-size:13.5px;color:var(--dim);line-height:2.05;unicode-bidi:plaintext;margin-top:8px}
+.story{padding:20px 0;border-bottom:1px solid var(--line)}
+.story:last-child{border-bottom:none}
+.story .meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-family:var(--mono);font-size:9px;direction:ltr;justify-content:flex-end}
+.story .meta .k{letter-spacing:.08em;font-weight:600}
+.k.k-repo{color:var(--accent)} .k.k-rel,.k.k-ph{color:var(--ok)} .k.k-sec{color:var(--bad)}
+.k.k-hn,.k.k-com{color:var(--warn)} .k.k-web{color:var(--faint)}
+.story .meta .src{color:var(--faint)}
+.story h3{font-family:var(--serif);font-size:16.5px;font-weight:600;line-height:1.8;margin-top:6px;unicode-bidi:plaintext}
+.story .figure{margin:12px 0 2px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--well)}
+.story .figure img{display:block;width:100%;max-height:320px;object-fit:cover;filter:saturate(.9) brightness(.96)}
+[data-theme="paper"] .story .figure img{filter:saturate(.95)}
+.story .body{font-size:13px;color:var(--dim);line-height:2;margin-top:8px;unicode-bidi:plaintext}
+.why{margin-top:12px;padding-inline-start:12px;border-inline-start:2px solid color-mix(in srgb,var(--accent) 38%,var(--line))}
+.why b{display:block;font-size:10px;font-weight:600;color:var(--faint)}
+.why p{font-size:12px;color:var(--dim);line-height:1.95;margin-top:2px;unicode-bidi:plaintext}
+.story .lnk{display:inline-block;margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--accent);text-decoration:none;direction:ltr;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.story .lnk:hover{text-decoration:underline}
+.story .cpy{font-size:10px;color:var(--faint);margin-inline-start:10px;padding:2px 8px;border:1px solid var(--line);border-radius:6px;transition:color .15s,border-color .15s}
+.story .cpy:hover{color:var(--accent);border-color:var(--linehi)}
+.endmark{margin-top:44px;text-align:center;font-family:var(--serif);font-size:11.5px;color:var(--faint)}
+.endmark::before{content:"❖";display:block;font-size:10px;color:var(--accent);letter-spacing:0;margin-bottom:8px;opacity:.7}
+.skeleton{height:60px;border-bottom:1px solid var(--line);position:relative;overflow:hidden}
+.skeleton::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,var(--well),transparent);animation:sk 1.2s ease-in-out infinite}
+@keyframes sk{from{translate:-100% 0}to{translate:100% 0}}
+
+/* ———— toast ———— */
+#toast{
+  position:fixed;bottom:26px;inset-inline:0;margin-inline:auto;width:max-content;max-width:82vw;
+  background:var(--surface);border:1px solid var(--linehi);border-radius:9px;
+  padding:8px 16px;font-size:12px;z-index:40;display:none;
+  box-shadow:0 8px 28px -10px rgba(0,0,0,.4);
+}
+#toast.on{display:block;animation:toastin .3s cubic-bezier(.22,1,.36,1)}
+@keyframes toastin{from{opacity:0;transform:translateY(10px)}}
+#toast.good{border-color:color-mix(in srgb,var(--ok) 50%,transparent)}
+#toast.err{border-color:color-mix(in srgb,var(--bad) 50%,transparent)}
+
+/* ———— print (چاپ / PDF از صفحهٔ خوانش) ———— */
+@media print{
+  :root,:root[data-theme="paper"]{
+    --bg:#fff;--surface:#fff;--well:#fff;--line:#bbb;--linehi:#777;
+    --ink:#000;--dim:#222;--faint:#555;--accent:#8a1d0d;--grain:0;
+  }
+  header,.readbar,.reader-top,#toast,.story .cpy,.toc,body::after{display:none!important}
+  body{background:#fff;font-size:12.5px}
+  .paper{padding:0 0 20px}
+  .story,.tldr{break-inside:avoid}
+  .story .lnk{white-space:normal;word-break:break-all}
+}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+
+<div class="readbar" id="readbar" aria-hidden="true"><i id="readfill"></i></div>
+
+<header>
+  <div class="wrap bar">
+    <span class="masthead" id="homeBtn" title="خانه">سردبیر<i>.</i></span>
+    <span class="date" id="todayFa"></span>
+    <span class="sp"></span>
+    <span class="status"><span class="dot" id="statusDot"></span><span id="statusTxt">آماده</span></span>
+    <button class="iconbtn" id="themeBtn" title="جوهر / کاغذ" aria-label="تغییر پوسته">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M12 3a9 9 0 0 1 0 18" fill="currentColor" stroke="none" opacity=".35"/></svg>
+    </button>
+    <button class="iconbtn" id="gearBtn" title="تنظیمات" aria-label="تنظیمات">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- ═══════ VIEW: HOME ═══════ -->
+<main class="view on" id="view-home">
+  <div class="wrap">
+
+    <section class="compose">
+      <h1>امروز چه گزارشی آماده کنم؟</h1>
+      <div class="sub">موضوع بده — جست‌وجو، گزینش، خلاصه و صفحه‌آرایی با تحریریه.</div>
+
+      <form class="field" id="runForm">
+        <input id="topicInp" type="text" placeholder="مثلاً: ایجنت‌های هوش مصنوعی" autocomplete="off" aria-label="موضوع گزارش">
+        <button class="go" id="goBtn" type="submit">تولید ↵</button>
+      </form>
+
+      <div class="quick" id="quick">
+        <button type="button" class="hot" id="devBtn">نبض برنامه‌نویسی</button>
+        <span class="sep">·</span>
+        <button type="button" id="weeklyBtn">جمع‌بندی هفتگی</button>
+        <span class="sep">·</span>
+        <span id="topicChips"></span>
+        <button type="button" id="optsBtn">تنظیمات اجرا ▾</button>
+      </div>
+
+      <div class="opts" id="opts">
+        <select id="optLang" aria-label="زبان">
+          <option value="">زبان: پیش‌فرض</option>
+          <option value="Persian">فارسی</option>
+          <option value="English">English</option>
+          <option value="Chinese">中文</option>
+          <option value="Arabic">العربية</option>
+        </select>
+        <select id="optCols" aria-label="ستون">
+          <option value="">ستون: پیش‌فرض</option>
+          <option>1</option><option>2</option><option>3</option><option>4</option>
+        </select>
+        <select id="optNews" aria-label="خبر در ستون">
+          <option value="">خبر: پیش‌فرض</option>
+          <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+        </select>
+        <label><input type="checkbox" id="optRepeats"> اجازهٔ تکرار</label>
+      </div>
+    </section>
+
+    <!-- wire -->
+    <section class="wire">
+      <div class="stages" id="stages"></div>
+      <div class="progress" id="progress"><i id="progFill"></i></div>
+      <div class="srcchips" id="srcchips" title="منابع نبض برنامه‌نویسی"></div>
+      <button class="wireline" id="wireBtn" type="button" aria-expanded="false">
+        <span>سیم خبر</span>
+        <span class="txt" id="wireTxt">—</span>
+        <span class="chev">▾</span>
+      </button>
+      <div class="term" id="term" aria-label="لاگ اجرا"></div>
+    </section>
+
+    <!-- archive -->
+    <section class="archive">
+      <div class="stats" id="stats"></div>
+      <div class="arch-head">
+        <h2>بایگانی</h2>
+        <span class="count" id="archCount"></span>
+        <span class="sp"></span>
+        <div class="filters" id="filters">
+          <button data-f="all" class="on">همه</button>
+          <button data-f="nw">خبری</button>
+          <button data-f="dev">دِو</button>
+          <button data-f="wk">هفتگی</button>
+        </div>
+      </div>
+      <div class="search"><input id="searchInp" type="text" placeholder="جست‌وجو در بایگانی…" aria-label="جست‌وجو"></div>
+      <div id="archList"></div>
+    </section>
+
+  </div>
+</main>
+
+<!-- ═══════ VIEW: READER ═══════ -->
+<main class="view" id="view-reader">
+  <div class="wrap">
+    <div class="reader-top">
+      <button class="backbtn" id="backBtn"><span style="font-size:15px">→</span> بایگانی</button>
+      <span class="sp"></span>
+      <button class="iconbtn" id="fsDown" title="قلم ریزتر" aria-label="قلم ریزتر" style="font-family:var(--serif);font-size:11px">آ</button>
+      <button class="iconbtn" id="fsUp" title="قلم درشت‌تر" aria-label="قلم درشت‌تر" style="font-family:var(--serif);font-size:16px">آ</button>
+      <button class="iconbtn" id="printBtn" title="چاپ / PDF" aria-label="چاپ">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/></svg>
+      </button>
+      <button class="iconbtn" id="tgSendBtn" title="ارسال به تلگرام" aria-label="ارسال به تلگرام">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+      </button>
+      <span id="readerLinks" style="display:flex;gap:6px"></span>
+    </div>
+    <article class="paper" id="paper"></article>
+  </div>
+</main>
+
+<!-- ═══════ SETTINGS MODAL ═══════ -->
+<div class="modal" id="settings" role="dialog" aria-modal="true" aria-label="تنظیمات">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>تنظیمات</h2>
+      <button class="iconbtn" id="settingsClose" aria-label="بستن">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+
+      <h3 class="mh">مدل</h3>
+      <div class="sgrid">
+        <div class="sfield">
+          <label>سرویس‌دهنده</label>
+          <select id="setPreset"></select>
+        </div>
+        <div class="sfield">
+          <label>مدل <span class="hint">(خالی = پیش‌فرض)</span></label>
+          <input class="ltr" id="setModel" placeholder="model-id" autocomplete="off">
+        </div>
+        <div class="sfield" id="baseUrlField" style="display:none">
+          <label>Base URL</label>
+          <input class="ltr" id="setBaseUrl" placeholder="https://api.example.com/v1" autocomplete="off">
+        </div>
+        <div class="sfield" id="keyField">
+          <label>API Key</label>
+          <div class="keywrap">
+            <input class="ltr" id="setKey" type="password" placeholder="sk-..." autocomplete="off" style="padding-inline-end:34px">
+            <button type="button" class="eye" id="eyeBtn" aria-label="نمایش کلید">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="keyenv" id="keyEnv"></div>
+        </div>
+      </div>
+      <div class="sactions" style="margin-top:12px">
+        <button class="btn btn-line" id="testBtn">تست اتصال</button>
+        <span class="testout" id="testOut" style="margin-top:0"></span>
+      </div>
+
+      <h3 class="mh">گزارش</h3>
+      <div class="sgrid">
+        <div class="sfield">
+          <label>زبان گزارش</label>
+          <select id="setLang">
+            <option value="Persian">فارسی</option>
+            <option value="English">English</option>
+            <option value="Chinese">中文</option>
+            <option value="Arabic">العربية</option>
+          </select>
+        </div>
+        <div class="sfield">
+          <label>لحن</label>
+          <select id="setTone">
+            <option value="editorial">سردبیری</option>
+            <option value="conversational">محاوره‌ای</option>
+          </select>
+        </div>
+        <div class="sfield">
+          <label>حداکثر ستون</label>
+          <select id="setMaxCols"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select>
+        </div>
+        <div class="sfield">
+          <label>خبر در هر ستون</label>
+          <select id="setMaxNews"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select>
+        </div>
+      </div>
+      <div class="sfield" style="margin-top:14px">
+        <label>موضوع‌های میان‌بر <span class="hint">(هر خط یک موضوع — کنار دکمه‌های صفحهٔ اصلی)</span></label>
+        <textarea id="setTopics" rows="3" placeholder="ایجنت‌های هوش مصنوعی&#10;امنیت سایبری"></textarea>
+      </div>
+
+      <h3 class="mh">نبض برنامه‌نویسی</h3>
+      <div class="sgrid">
+        <div class="sfield">
+          <label>ساب‌ردیت‌ها <span class="hint">(با کاما)</span></label>
+          <input class="ltr" id="dpSubs" placeholder="programming, webdev" autocomplete="off">
+        </div>
+        <div class="sfield">
+          <label>زبان گیت‌هاب <span class="hint">(خالی = همه)</span></label>
+          <input class="ltr" id="dpLang" placeholder="python" autocomplete="off">
+        </div>
+      </div>
+      <div class="sfield" style="margin-top:14px">
+        <label>ریپوهای زیر نظر <span class="hint">(هر خط owner/repo — ریلیزهای تازه‌شان خلاصه می‌شود؛ خالی = ستون ریلیز حذف)</span></label>
+        <textarea class="ltr" id="dpRepos" rows="3" placeholder="ollama/ollama&#10;python/cpython"></textarea>
+      </div>
+      <div class="sfield" style="margin-top:14px">
+        <label>فیدهای RSS اضافه <span class="hint">(هر خط یک آدرس — پلِ X / وبلاگ‌ها به ستون Community Buzz)</span></label>
+        <textarea class="ltr" id="dpFeeds" rows="2" placeholder="https://rsshub.app/twitter/user/OpenAI"></textarea>
+      </div>
+
+      <h3 class="mh">تلگرام</h3>
+      <div class="sgrid">
+        <div class="sfield">
+          <label>توکن بات <span class="hint">(از @BotFather — در .env ذخیره می‌شود)</span></label>
+          <input class="ltr" id="tgToken" type="password" placeholder="123456:ABC-DEF..." autocomplete="off">
+          <div class="keyenv" id="tgEnv"></div>
+        </div>
+        <div class="sfield">
+          <label>کانال / Chat ID <span class="hint">(مثل @my_channel یا عدد)</span></label>
+          <input class="ltr" id="tgChat" placeholder="@my_channel" autocomplete="off">
+        </div>
+        <div class="sfield">
+          <label>پراکسی تلگرام <span class="hint">(اگر تلگرام فیلتر است — فقط برای ارسال)</span></label>
+          <input class="ltr" id="tgProxy" placeholder="socks5://127.0.0.1:10808" autocomplete="off">
+        </div>
+        <div class="sfield">
+          <label>سبک ارسال <span class="hint">(کانالی = هر خبر یک پست با عکس)</span></label>
+          <select id="tgStyle">
+            <option value="channel">کانالی — پست‌به‌پست با عکس</option>
+            <option value="digest">فشرده — چند خبر در یک پیام</option>
+          </select>
+        </div>
+      </div>
+      <div class="sactions" style="margin-top:12px;flex-wrap:wrap">
+        <label class="swlab"><input type="checkbox" id="tgEnabled"> ارسال خودکار بعد از هر گزارش</label>
+        <label class="swlab"><input type="checkbox" id="tgHtml"> پیوست فایل HTML</label>
+      </div>
+      <div class="sactions" style="margin-top:10px">
+        <button class="btn btn-line" id="tgTestBtn" type="button">ارسال آزمایشی</button>
+        <span class="testout" id="tgTestOut" style="margin-top:0;direction:rtl;text-align:start;font-family:var(--sans);font-size:11.5px"></span>
+      </div>
+
+      <h3 class="mh">اجرای خودکار</h3>
+      <div class="sched-row">
+        <label class="swlab"><input type="checkbox" id="schEnabled"> فعال</label>
+        <input type="time" id="schTime" value="08:00" aria-label="ساعت اجرا">
+        <select id="schMode" aria-label="نوع اجرا">
+          <option value="dev">نبض برنامه‌نویسی</option>
+          <option value="topic">موضوع ثابت</option>
+          <option value="weekly">جمع‌بندی هفتگی</option>
+        </select>
+        <input type="text" id="schTopic" placeholder="موضوع…" style="display:none" aria-label="موضوع ثابت">
+        <select id="schDay" style="display:none" aria-label="روز هفته">
+          <option value="5">شنبه</option><option value="6">یکشنبه</option><option value="0">دوشنبه</option>
+          <option value="1">سه‌شنبه</option><option value="2">چهارشنبه</option><option value="3">پنجشنبه</option>
+          <option value="4">جمعه</option>
+        </select>
+      </div>
+      <div class="hint" style="margin-top:8px">تا وقتی پنل باز است، سرِ ساعت اجرا می‌شود.</div>
+      <label class="swlab" id="autostartWrap" style="display:none;margin-top:10px">
+        <input type="checkbox" id="autostartChk"> اجرا با روشن‌شدن ویندوز <span class="hint">(بی‌صدا، بدون بازکردن مرورگر — زمان‌بندی همیشه فعال می‌ماند)</span>
+      </label>
+
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-solid" id="saveBtn">ذخیرهٔ همه</button>
+      <button class="btn btn-line" id="settingsClose2">بستن</button>
+      <span class="note">در <span class="mono">settings.overrides.json</span> و <span class="mono">schedule.json</span> ذخیره می‌شود؛ YAML دست‌نخورده می‌ماند.</span>
+    </div>
+  </div>
+</div>
+
+<div id="toast" role="status"></div>
+
+<script>
+"use strict";
+/* ————— helpers ————— */
+const $ = (s) => document.querySelector(s);
+const fa = (n) => String(n).replace(/\d/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[d]);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+/* older reports may still open with a model greeting — hide it at display time */
+const degreet = (s) => String(s ?? "").replace(/^\s*(?:(?:سلام(?:\s+(?:رفیق|دوست\s+من|دوستان|همکار|بچه‌ها))?|درود(?:\s+بر\s+شما)?|هی|hello\s+there|hello|hi\s+there|hi|hey\s+there|hey|greetings)\s*[!,.،؛:\-–—]*\s*)+/i, "");
+const api = {
+  state: () => fetch("/api/state").then((r) => r.json()),
+  reports: () => fetch("/api/reports").then((r) => r.json()),
+  settings: () => fetch("/api/settings").then((r) => r.json()),
+  run: (b) => fetch("/api/run", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}).then((r) => r.json()),
+  save: (b) => fetch("/api/settings", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}).then((r) => r.json()),
+  test: (b) => fetch("/api/settings/test", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}).then((r) => r.json()),
+};
+const rUrl = (n) => "/reports/" + encodeURIComponent(n);
+
+/* ————— theme ————— */
+const themeBtn = $("#themeBtn");
+const applyTheme = (t) => { document.documentElement.dataset.theme = t; localStorage.setItem("ink-theme", t); };
+applyTheme(localStorage.getItem("ink-theme") || "ink");
+themeBtn.onclick = () => applyTheme(document.documentElement.dataset.theme === "ink" ? "paper" : "ink");
+
+/* ————— date ————— */
+$("#todayFa").textContent = new Date().toLocaleDateString("fa-IR", {weekday:"long", day:"numeric", month:"long"});
+
+/* ————— toast ————— */
+let toastT;
+function toast(msg, good) {
+  const el = $("#toast");
+  el.textContent = msg;
+  el.className = "on " + (good ? "good" : "err");
+  clearTimeout(toastT);
+  toastT = setTimeout(() => (el.className = ""), 4200);
+}
+
+/* ————— state polling ————— */
+let running = false, wasRunning = false, reports = [], sched = null;
+const schedSuffix = () => (sched && sched.enabled ? " · خودکار " + fa(sched.time) : "");
+const STAGES = [
+  ["سرفصل", /\[(Outline Generated|Use Customized Outline)\]/],
+  ["جست‌وجو", /\[(Search Attempt|Search News Count|RSS Matched|Dev Sources)/],
+  ["گزینش", /\[Picked News Count\]/],
+  ["خلاصه", /\[Summariz/],
+  ["نگارش", /\[Column Ready\]/],
+  ["خروجی", /\[(Markdown|Json|Html) Saved\]|\[TLDR Generated\]/],
+];
+function stageIdx(log) {
+  let reached = -1;
+  for (const line of log)
+    for (let i = STAGES.length - 1; i > reached; i--)
+      if (STAGES[i][1].test(line)) { reached = i; break; }
+  return reached;
+}
+function renderStages(log) {
+  const el = $("#stages"), prog = $("#progress");
+  if (!running) { el.className = "stages"; prog.className = "progress"; return; }
+  const reached = stageIdx(log);
+  const act = Math.min(reached + 1, STAGES.length - 1);
+  el.innerHTML = STAGES.map(([name], i) => {
+    const t = i <= reached ? `<s>${name}</s>` : i === act ? `<b>${name}</b>` : `<u>${name}</u>`;
+    return t + (i < STAGES.length - 1 ? '<span class="arr">←</span>' : "");
+  }).join("");
+  el.className = "stages on";
+  prog.className = "progress on";
+  $("#progFill").style.width = Math.max(6, Math.round(((reached + 1) / STAGES.length) * 100)) + "%";
+}
+const CHIP_LBL = {
+  github_trending: "GH TREND", github_rising: "GH RISING", github_new: "GH NEW", github_releases: "RELEASES",
+  github_advisories: "SECURITY", hackernews: "HN", lobsters: "LOBSTERS",
+  reddit: "REDDIT", devto: "DEV.TO", product_hunt: "PRODUCT HUNT",
+  daily_dev: "DAILY.DEV", extra_feeds: "FEEDS",
+};
+function renderSrcChips(log) {
+  const found = new Map();
+  for (const line of log) {
+    const m = line.match(/\[Dev Channel\] (\w+): (?:(\d+) items|failed)/);
+    if (m) found.set(m[1], m[2] === undefined ? -1 : +m[2]);
+  }
+  const el = $("#srcchips");
+  if (!found.size) { el.className = "srcchips"; return; }
+  el.innerHTML = [...found]
+    .map(([ch, n]) => `<span class="${n < 0 ? "fail" : "ok"}">${CHIP_LBL[ch] || ch} ${n < 0 ? "✗" : n}</span>`)
+    .join("");
+  el.className = "srcchips on";
+}
+function renderTerm(log) {
+  const el = $("#term");
+  const stick = el.scrollTop + el.clientHeight >= el.scrollHeight - 30;
+  el.innerHTML = log.map((l) => {
+    const low = l.toLowerCase();
+    const cls = /error|failed|traceback/.test(low) ? "err" : /warn|fallback|retry/.test(low) ? "wrn" : /saved|✓|delivered/.test(low) ? "okl" : "";
+    return `<div class="${cls}">${esc(l)}</div>`;
+  }).join("") || '<span style="opacity:.5">در انتظار نخستین اجرا…</span>';
+  if (stick) el.scrollTop = el.scrollHeight;
+}
+async function poll() {
+  let delay = 4000;
+  try {
+    const s = await api.state();
+    running = s.running;
+    $("#statusDot").className = "dot" + (running ? " busy" : "");
+    $("#statusTxt").textContent = running ? "در حال تولید: " + (s.topic || "…") : "آماده" + schedSuffix();
+    $("#goBtn").disabled = running;
+    $("#devBtn").disabled = running;
+    $("#weeklyBtn").disabled = running;
+    $("#wireTxt").textContent = s.log.length ? s.log[s.log.length - 1] : "—";
+    renderStages(s.log);
+    renderSrcChips(s.log);
+    if ($("#term").classList.contains("on")) renderTerm(s.log);
+    renderChips(s.topics || []);
+    if (wasRunning && !running) {
+      loadReports().then(() => {
+        // فرض پیش‌فرض: گزارش تازه مستقیم در نمای روزنامه باز شود.
+        if (!s.error && reports.length && $("#view-home").classList.contains("on")) {
+          const newest = [...reports].sort((a, b) =>
+            (b.generated_at || b.date || "").localeCompare(a.generated_at || a.date || ""))[0];
+          if (newest?.files?.json) location.hash = "r=" + encodeURIComponent(newest.files.json);
+        }
+      });
+      if (s.error) {
+        const msg = s.error.startsWith("model_unreachable")
+          ? "مدل در دسترس نیست — سرور مدل (اولاما) روشن است؟ از تنظیمات «تست اتصال» بگیر."
+          : s.error === "empty_report"
+          ? "گزارش خالی ماند — همهٔ تماس‌های مدل شکست خورد؛ اتصال مدل را بررسی کن."
+          : "اجرا با خطا متوقف شد: " + s.error;
+        toast(msg, false);
+      }
+      else { toast("گزارش آماده شد ✓", true); collapseTerm(); }
+    }
+    if (!wasRunning && running) expandTerm();
+    wasRunning = running;
+    delay = running ? 1200 : 4000;
+  } catch {}
+  setTimeout(poll, delay);
+}
+
+/* ————— run ————— */
+const opts = () => ({
+  language: $("#optLang").value || null,
+  max_columns: $("#optCols").value ? +$("#optCols").value : null,
+  max_news: $("#optNews").value ? +$("#optNews").value : null,
+  allow_repeats: $("#optRepeats").checked,
+});
+async function startRun(body, label) {
+  try {
+    const out = await api.run(body);
+    if (out.ok) toast("اجرا شروع شد: " + label, true);
+    else if (out.message === "already_running") toast("یک اجرا در جریان است؛ صبر کنید.", false);
+    else toast("شروع اجرا ناموفق بود.", false);
+  } catch { toast("شروع اجرا ناموفق بود.", false); }
+}
+$("#runForm").onsubmit = (e) => {
+  e.preventDefault();
+  const t = $("#topicInp").value.trim();
+  if (!t || running) return;
+  startRun({ topic: t, ...opts() }, t);
+};
+$("#devBtn").onclick = () => !running && startRun({ dev: true, ...opts() }, "نبض برنامه‌نویسی");
+$("#weeklyBtn").onclick = () => !running && startRun({ weekly: true, language: $("#optLang").value || null }, "جمع‌بندی هفتگی");
+$("#optsBtn").onclick = () => {
+  const el = $("#opts");
+  el.classList.toggle("on");
+  $("#optsBtn").textContent = "تنظیمات اجرا " + (el.classList.contains("on") ? "▴" : "▾");
+};
+let chipsCache = "";
+function renderChips(topics) {
+  const key = topics.join("|");
+  if (key === chipsCache) return;
+  chipsCache = key;
+  $("#topicChips").innerHTML = topics
+    .map((t) => `<button type="button" data-t="${esc(t)}" style="unicode-bidi:plaintext">${esc(t)}</button><span class="sep">·</span>`)
+    .join("");
+  $("#topicChips").querySelectorAll("button").forEach((b) => {
+    b.onclick = () => { $("#topicInp").value = b.dataset.t; $("#topicInp").focus(); };
+  });
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key === "/" && document.activeElement.tagName !== "INPUT" && $("#view-home").classList.contains("on")) {
+    e.preventDefault(); $("#topicInp").focus();
+  }
+  if (e.key === "Escape") {
+    if ($("#settings").classList.contains("on")) closeSettings();
+    else if ($("#view-reader").classList.contains("on")) goHome();
+  }
+});
+
+/* ————— wire / terminal ————— */
+const wireBtn = $("#wireBtn");
+function expandTerm() {
+  $("#term").classList.add("on"); wireBtn.classList.add("open");
+  wireBtn.setAttribute("aria-expanded", "true");
+  api.state().then((s) => renderTerm(s.log)).catch(() => {});
+}
+function collapseTerm() {
+  $("#term").classList.remove("on"); wireBtn.classList.remove("open");
+  wireBtn.setAttribute("aria-expanded", "false");
+}
+wireBtn.onclick = () => ($("#term").classList.contains("on") ? collapseTerm() : expandTerm());
+
+/* ————— archive ————— */
+let filter = "all", query = "";
+const kindOf = (r) => {
+  const t = ((r.topic || "") + " " + (r.report_title || "")).toLowerCase();
+  if (t.includes("developer pulse") || t.includes("نبض")) return "dev";
+  if (t.includes("weekly") || t.includes("جمع‌بندی") || t.includes("هفتگی")) return "wk";
+  return "nw";
+};
+const KIND_TAG = { dev: ["DEV", "t-dev"], wk: ["WKLY", "t-wk"], nw: ["NEWS", "t-nw"] };
+function loadReports() { return api.reports().then((r) => { reports = r; renderArchive(); }).catch(() => {}); }
+const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+function renderStats() {
+  const el = $("#stats");
+  if (!reports.length) { el.className = "stats"; return; }
+  const days = new Set(reports.map((r) => r.date).filter(Boolean));
+  const cursor = new Date();
+  if (!days.has(isoDay(cursor))) cursor.setDate(cursor.getDate() - 1);
+  let streak = 0;
+  while (days.has(isoDay(cursor))) { streak++; cursor.setDate(cursor.getDate() - 1); }
+  const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 6);
+  const thisWeek = reports.filter((r) => (r.date || "") >= isoDay(weekAgo)).length;
+  el.innerHTML =
+    `<div><b>${fa(reports.length)}</b><span>گزارش در بایگانی</span></div>` +
+    `<div><b>${fa(thisWeek)}</b><span>در ۷ روز اخیر</span></div>` +
+    `<div><b>${fa(streak)}</b><span>روز پیاپی</span></div>`;
+  el.className = "stats on";
+}
+function renderArchive() {
+  renderStats();
+  const q = query.trim().toLowerCase();
+  const list = [...reports]
+    .sort((a, b) => (b.generated_at || b.date || "").localeCompare(a.generated_at || a.date || ""))
+    .filter((r) => (filter === "all" || kindOf(r) === filter))
+    .filter((r) => !q || (r.report_title || "").toLowerCase().includes(q) || (r.topic || "").toLowerCase().includes(q));
+  $("#archCount").textContent = reports.length ? `${fa(reports.length)} گزارش` : "";
+  if (!list.length) {
+    $("#archList").innerHTML = `<div class="empty">${reports.length ? "چیزی مطابق جست‌وجو نیست." : "هنوز گزارشی نیست — از بالا یک موضوع بده."}</div>`;
+    return;
+  }
+  const groups = new Map();
+  for (const r of list) {
+    if (!groups.has(r.date)) groups.set(r.date, []);
+    groups.get(r.date).push(r);
+  }
+  let html = "";
+  for (const [date, rows] of groups) {
+    let label = date;
+    try { label = new Date(date + "T00:00:00").toLocaleDateString("fa-IR", {weekday:"long", day:"numeric", month:"long"}); } catch {}
+    html += `<div class="daygroup"><div class="daylabel">${esc(label)}</div>`;
+    for (const r of rows) {
+      const [tag, cls] = KIND_TAG[kindOf(r)];
+      const f = r.files || {};
+      const fmts = [["html","HTML"],["markdown","MD"],["json","JSON"]]
+        .filter(([k]) => f[k])
+        .map(([k, l]) => `<a href="${rUrl(f[k])}" target="_blank" rel="noreferrer" onclick="event.stopPropagation()">${l}</a>`)
+        .join("");
+      html += `<button class="row" data-json="${esc(f.json || "")}" data-html="${esc(f.html || "")}">
+        <span class="tag ${cls}">${tag}</span>
+        <span class="ttl">${esc(r.report_title || "بدون عنوان")}</span>
+        <span class="fmts">${fmts}</span>
+        <span class="arrow">‹</span>
+      </button>`;
+    }
+    html += `</div>`;
+  }
+  $("#archList").innerHTML = html;
+  $("#archList").querySelectorAll(".row").forEach((row) => {
+    row.onclick = () => {
+      if (row.dataset.json) location.hash = "r=" + encodeURIComponent(row.dataset.json);
+      else if (row.dataset.html) window.open(rUrl(row.dataset.html), "_blank");
+    };
+  });
+}
+$("#searchInp").oninput = (e) => { query = e.target.value; renderArchive(); };
+$("#filters").querySelectorAll("button").forEach((b) => {
+  b.onclick = () => {
+    filter = b.dataset.f;
+    $("#filters").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+    renderArchive();
+  };
+});
+
+/* ————— settings ————— */
+const PROVIDERS = { ollama:"Ollama — محلی، بدون کلید", groq:"Groq — خیلی سریع", deepseek:"DeepSeek — اقتصادی", openrouter:"OpenRouter — همهٔ مدل‌ها", openai:"OpenAI", together:"Together", custom:"Custom — آدرس دلخواه" };
+let settingsData = null, settingsLoaded = false;
+function openSettings() {
+  $("#settings").classList.add("on");
+  document.body.style.overflow = "hidden";
+  if (!settingsLoaded) loadSettings();
+  loadSchedule();
+  loadAutostart();
+}
+async function loadAutostart() {
+  try {
+    const a = await fetch("/api/autostart").then((r) => r.json());
+    $("#autostartWrap").style.display = a.supported ? "" : "none";
+    $("#autostartChk").checked = !!a.enabled;
+  } catch {}
+}
+$("#autostartChk").onchange = async function () {
+  try {
+    const out = await fetch("/api/autostart", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: this.checked }),
+    }).then((r) => r.json());
+    if (out.ok) toast(this.checked ? "با ویندوز اجرا می‌شود ✓" : "از استارت‌آپ حذف شد.", true);
+    else { this.checked = !this.checked; toast("تغییر استارت‌آپ ناموفق بود.", false); }
+  } catch { this.checked = !this.checked; toast("تغییر استارت‌آپ ناموفق بود.", false); }
+};
+function closeSettings() {
+  $("#settings").classList.remove("on");
+  document.body.style.overflow = "";
+}
+$("#gearBtn").onclick = openSettings;
+$("#settingsClose").onclick = closeSettings;
+$("#settingsClose2").onclick = closeSettings;
+$("#settings").onclick = (e) => { if (e.target === $("#settings")) closeSettings(); };
+function loadSettings() {
+  api.settings().then((view) => {
+    settingsLoaded = true;
+    settingsData = view;
+    const ids = [...view.presets.map((p) => p.id), "custom"];
+    $("#setPreset").innerHTML = ids.map((id) => `<option value="${id}">${PROVIDERS[id] || id}</option>`).join("");
+    const cur = view.current;
+    $("#setPreset").value = cur.preset || (cur.base_url?.includes("localhost") ? "ollama" : "custom");
+    $("#setModel").value = cur.model && !cur.model.includes("${") ? cur.model : "";
+    $("#setBaseUrl").value = cur.base_url && !cur.base_url.includes("${") ? cur.base_url : "";
+    $("#setLang").value = cur.language || "English";
+    $("#setTone").value = cur.tone || "editorial";
+    $("#setMaxCols").value = String(cur.max_columns || 3);
+    $("#setMaxNews").value = String(cur.max_news || 3);
+    $("#setTopics").value = (view.topics || []).join("\n");
+    const dp = view.dev_pulse || {};
+    $("#dpSubs").value = (dp.reddit_subreddits || []).join(", ");
+    $("#dpLang").value = dp.github_language || "";
+    $("#dpRepos").value = (dp.watch_repos || []).join("\n");
+    $("#dpFeeds").value = (dp.extra_feeds || []).join("\n");
+    const dl = view.delivery || {};
+    $("#tgEnabled").checked = !!dl.telegram_enabled;
+    $("#tgChat").value = dl.chat_id || "";
+    $("#tgProxy").value = dl.proxy || "";
+    $("#tgStyle").value = dl.send_style === "digest" ? "digest" : "channel";
+    $("#tgHtml").checked = dl.send_html_file !== false;
+    $("#tgEnv").innerHTML = "→ .env : TELEGRAM_BOT_TOKEN" + (dl.token_present ? " <b>— saved key found</b>" : "");
+    syncPresetUI();
+  }).catch(() => toast("خواندن تنظیمات ناموفق بود.", false));
+}
+function syncPresetUI() {
+  const preset = $("#setPreset").value;
+  $("#baseUrlField").style.display = preset === "custom" ? "" : "none";
+  $("#keyField").style.display = preset === "ollama" ? "none" : "";
+  const meta = settingsData?.presets.find((p) => p.id === preset);
+  const keyEnv = preset === "custom" ? "CUSTOM_API_KEY" : meta?.key_env || "";
+  const saved = settingsData?.current.key_env === keyEnv && settingsData?.current.key_present;
+  $("#setModel").placeholder = meta?.default_model || "model-id";
+  $("#keyEnv").innerHTML = keyEnv ? `→ .env : ${keyEnv}${saved ? " <b>— saved key found</b>" : ""}` : "";
+}
+$("#setPreset").onchange = syncPresetUI;
+$("#eyeBtn").onclick = () => { const i = $("#setKey"); i.type = i.type === "password" ? "text" : "password"; };
+const asList = (value, splitter) => value.split(splitter).map((s) => s.trim()).filter(Boolean);
+const sPayload = () => ({
+  preset: $("#setPreset").value,
+  model: $("#setModel").value.trim() || null,
+  base_url: $("#setBaseUrl").value.trim() || null,
+  api_key: $("#setKey").value.trim() || null,
+  language: $("#setLang").value,
+  tone: $("#setTone").value,
+  max_columns: +$("#setMaxCols").value || null,
+  max_news: +$("#setMaxNews").value || null,
+  topics: asList($("#setTopics").value, "\n"),
+  dev_pulse: {
+    reddit_subreddits: asList($("#dpSubs").value, /[\n,]+/),
+    watch_repos: asList($("#dpRepos").value, /[\n,]+/),
+    extra_feeds: asList($("#dpFeeds").value, "\n"),
+    github_language: $("#dpLang").value.trim(),
+  },
+  delivery: {
+    telegram_enabled: $("#tgEnabled").checked,
+    chat_id: $("#tgChat").value.trim(),
+    send_html_file: $("#tgHtml").checked,
+    send_style: $("#tgStyle").value,
+    bot_token: $("#tgToken").value.trim() || null,
+    proxy: $("#tgProxy").value.trim(),
+  },
+});
+$("#tgTestBtn").onclick = async function () {
+  const out = $("#tgTestOut");
+  out.className = "testout"; out.textContent = "sending…";
+  this.disabled = true;
+  try {
+    const res = await fetch("/api/telegram/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bot_token: $("#tgToken").value.trim() || null, chat_id: $("#tgChat").value.trim() || null, proxy: $("#tgProxy").value.trim() || null }),
+    }).then((r) => r.json());
+    if (res.ok) { out.className = "testout good"; out.textContent = "✓ پیام آزمایشی رسید"; }
+    else if ((res.message || "").includes("connection_failed")) { out.className = "testout err"; out.textContent = "✗ تلگرام در دسترس نیست — پراکسی/VPN روشن است؟"; }
+    else { out.className = "testout err"; out.textContent = "✗ " + (res.message || "failed"); }
+  } catch { out.className = "testout err"; out.textContent = "✗ request failed"; }
+  this.disabled = false;
+};
+$("#saveBtn").onclick = async function () {
+  this.disabled = true;
+  try {
+    const out = await api.save(sPayload());
+    const sch = await fetch("/api/schedule", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(schedPayload()),
+    }).then((r) => r.json());
+    if (out.ok && sch.ok) {
+      sched = sch.schedule;
+      settingsLoaded = false;
+      toast("تنظیمات ذخیره شد ✓", true);
+      closeSettings();
+    } else toast("ذخیره ناموفق: " + (out.message || sch.message || ""), false);
+  } catch { toast("ذخیره ناموفق بود.", false); }
+  this.disabled = false;
+};
+$("#testBtn").onclick = async function () {
+  const out = $("#testOut");
+  out.className = "testout"; out.textContent = "testing…";
+  this.disabled = true;
+  try {
+    const res = await api.test(sPayload());
+    if (res.ok) { out.className = "testout good"; out.textContent = "✓ connected" + (res.models != null ? ` · ${res.models} models` : ""); }
+    else { out.className = "testout err"; out.textContent = "✗ " + (res.message || "failed"); }
+  } catch { out.className = "testout err"; out.textContent = "✗ request failed"; }
+  this.disabled = false;
+};
+
+/* ————— schedule ————— */
+async function loadSchedule() {
+  try {
+    sched = await fetch("/api/schedule").then((r) => r.json());
+    $("#schEnabled").checked = !!sched.enabled;
+    $("#schTime").value = sched.time || "08:00";
+    $("#schMode").value = sched.mode || "dev";
+    $("#schTopic").value = sched.topic || "";
+    $("#schDay").value = String(sched.day ?? 4);
+    syncSchedUI();
+  } catch {}
+}
+function syncSchedUI() {
+  const m = $("#schMode").value;
+  $("#schTopic").style.display = m === "topic" ? "" : "none";
+  $("#schDay").style.display = m === "weekly" ? "" : "none";
+}
+$("#schMode").onchange = syncSchedUI;
+const schedPayload = () => ({
+  enabled: $("#schEnabled").checked,
+  time: $("#schTime").value,
+  mode: $("#schMode").value,
+  topic: $("#schTopic").value.trim(),
+  day: +$("#schDay").value,
+});
+
+/* ————— reader font size + print ————— */
+const ZOOMS = [0.88, 1, 1.1, 1.22, 1.36];
+let zi = parseInt(localStorage.getItem("reader-zoom") ?? "1", 10);
+if (!(zi >= 0 && zi < ZOOMS.length)) zi = 1;
+function applyZoom() { $("#paper").style.zoom = ZOOMS[zi]; }
+$("#fsUp").onclick = () => { zi = Math.min(ZOOMS.length - 1, zi + 1); localStorage.setItem("reader-zoom", zi); applyZoom(); };
+$("#fsDown").onclick = () => { zi = Math.max(0, zi - 1); localStorage.setItem("reader-zoom", zi); applyZoom(); };
+$("#printBtn").onclick = () => window.print();
+applyZoom();
+
+/* ————— reader ————— */
+const badgeOf = (source, url) => {
+  const s = (source || "").toLowerCase(), u = (url || "").toLowerCase();
+  if (s.includes("advisor") || s.includes("security")) return ["SECURITY", "k-sec"];
+  if (s.includes("release")) return ["RELEASE", "k-rel"];
+  if (s.includes("github") || /github\.com\/[^/]+\/[^/]+\/?$/.test(u)) return ["REPO", "k-repo"];
+  if (s.includes("hacker")) return ["HN", "k-hn"];
+  if (s.includes("product hunt")) return ["LAUNCH", "k-ph"];
+  if (s.includes("reddit") || s.includes("lobster") || s.includes("dev.to") || s.includes("daily.dev")) return ["COMMUNITY", "k-com"];
+  if (s) return ["WEB", "k-web"];
+  return null;
+};
+function showView(id) {
+  document.querySelectorAll(".view").forEach((v) => v.classList.toggle("on", v.id === id));
+  $("#readbar").style.display = id === "view-reader" ? "" : "none";
+  window.scrollTo({ top: 0, behavior: "instant" });
+}
+function goHome() { location.hash = ""; }
+$("#backBtn").onclick = goHome;
+$("#homeBtn").onclick = goHome;
+
+let currentJson = null;
+$("#tgSendBtn").onclick = async function () {
+  if (!currentJson) return;
+  this.disabled = true;
+  toast("در حال ارسال به تلگرام…", true);
+  try {
+    const res = await fetch("/api/telegram/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ json: currentJson }),
+    }).then((r) => r.json());
+    if (res.ok) toast("گزارش به تلگرام ارسال شد ✓", true);
+    else if (res.message === "telegram_not_configured") toast("اول تلگرام را در تنظیمات وصل کن.", false);
+    else if ((res.message || "").includes("ConnectError")) toast("تلگرام در دسترس نیست — پراکسی/VPN روشن است؟", false);
+    else toast("ارسال ناموفق: " + (res.message || ""), false);
+  } catch { toast("ارسال ناموفق بود.", false); }
+  this.disabled = false;
+};
+
+async function openReader(jsonName) {
+  currentJson = jsonName;
+  showView("view-reader");
+  const paper = $("#paper");
+  paper.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+  const entry = reports.find((r) => r.files?.json === jsonName);
+  $("#readerLinks").innerHTML = entry
+    ? [["html","HTML"],["markdown","MD"],["json","JSON"]]
+        .filter(([k]) => entry.files?.[k])
+        .map(([k, l]) => `<a href="${rUrl(entry.files[k])}" target="_blank" rel="noreferrer">${l} ↗</a>`)
+        .join("")
+    : "";
+  let d;
+  try {
+    const res = await fetch(rUrl(jsonName));
+    if (!res.ok) throw 0;
+    d = await res.json();
+  } catch {
+    paper.innerHTML = `<div class="empty">این گزارش در دسترس نیست.</div>`;
+    return;
+  }
+  const count = (d.columns || []).reduce((n, c) => n + (c.news_list || []).length, 0);
+  const fullText = [
+    (d.tldr || []).join(" "),
+    ...(d.columns || []).map((c) =>
+      [c.prologue || "", ...(c.news_list || []).map((s) =>
+        [s.title, s.summary || s.brief, s.recommend_comment].filter(Boolean).join(" ")
+      )].join(" ")
+    ),
+  ].join(" ");
+  const readMins = Math.max(1, Math.round(fullText.trim().split(/\s+/).length / 180));
+  let html = `
+    <div class="kicker">
+      <span>${esc(entry?.date || "")}</span>
+      <span>${fa((d.columns || []).length)} COLUMNS · ${fa(count)} STORIES</span>
+      <span>~${fa(readMins)} MIN READ</span>
+      ${d.model ? `<span>${esc(d.model)}</span>` : ""}
+    </div>
+    <h1 dir="auto">${esc(d.report_title || "")}</h1>
+    <hr class="rule dbl">`;
+  if (d.tldr?.length) {
+    html += `<div class="tldr"><h2>برداشت‌های کلیدی</h2><ol>` +
+      d.tldr.map((t, i) => `<li><i>${fa(i + 1)}</i><span dir="auto">${esc(degreet(t))}</span></li>`).join("") +
+      `</ol></div>`;
+  }
+  if ((d.columns || []).length > 1) {
+    html += `<nav class="toc" aria-label="ستون‌ها">` +
+      d.columns.map((c, i) =>
+        `<a href="#col-${i}"><i>${String(i + 1).padStart(2, "0")}</i><span dir="auto">${esc(c.title || "")}</span></a>`
+      ).join("") + `</nav>`;
+  }
+  (d.columns || []).forEach((col, ci) => {
+    html += `<div class="colhead" id="col-${ci}"><span class="n">${String(ci + 1).padStart(2, "0")}</span><h2 dir="auto">${esc(col.title || "")}</h2></div>`;
+    if (col.prologue) html += `<p class="prologue" dir="auto">${esc(degreet(col.prologue))}</p>`;
+    for (const st of col.news_list || []) {
+      const b = badgeOf(st.source, st.url);
+      const img = typeof st.image === "string" && /^https?:\/\//.test(st.image) ? st.image : "";
+      html += `<div class="story">
+        <div class="meta">
+          ${b ? `<span class="k ${b[1]}">${b[0]}</span>` : ""}
+          ${st.source ? `<span class="src">${esc(st.source)}</span>` : ""}
+          ${st.date ? `<span class="src">${esc(String(st.date).slice(0, 10))}</span>` : ""}
+          ${typeof st.relevance_score === "number" ? `<span class="src">★ ${st.relevance_score}/10</span>` : ""}
+        </div>
+        <h3 dir="auto">${st.url ? `<a href="${esc(st.url)}" target="_blank" rel="noreferrer" style="text-decoration:none">${esc(st.title || "")}</a>` : esc(st.title || "")}</h3>
+        ${img ? `<figure class="figure"><img src="${esc(img)}" alt="${esc(st.title || "")}" loading="lazy" decoding="async" onerror="this.closest('.figure').remove()"></figure>` : ""}
+        ${st.summary || st.brief ? `<p class="body" dir="auto">${esc(degreet(st.summary || st.brief))}</p>` : ""}
+        ${st.recommend_comment ? `<div class="why"><b>چرا انتخاب شد</b><p dir="auto">${esc(degreet(st.recommend_comment))}</p></div>` : ""}
+        ${st.url ? `<a class="lnk" href="${esc(st.url)}" target="_blank" rel="noreferrer">${esc(st.url)} ↗</a><button type="button" class="cpy" data-t="${esc(st.title || "")}" data-u="${esc(st.url)}">کپی</button>` : ""}
+      </div>`;
+    }
+  });
+  html += `<div class="endmark">— پایان گزارش —</div>`;
+  paper.innerHTML = html;
+  paper.querySelectorAll(".toc a").forEach((a) => {
+    // Scroll without touching location.hash — the hash is the router.
+    a.onclick = (e) => {
+      e.preventDefault();
+      const target = paper.querySelector(a.getAttribute("href"));
+      if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+  });
+  paper.querySelectorAll(".cpy").forEach((b) => {
+    b.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText((b.dataset.t ? b.dataset.t + "\n" : "") + b.dataset.u);
+        toast("کپی شد ✓", true);
+      } catch { toast("کپی ناموفق بود.", false); }
+    };
+  });
+}
+
+/* reading progress */
+window.addEventListener("scroll", () => {
+  if (!$("#view-reader").classList.contains("on")) return;
+  const h = document.documentElement;
+  const max = h.scrollHeight - h.clientHeight;
+  $("#readfill").style.width = (max > 0 ? Math.min(100, (h.scrollTop / max) * 100) : 0) + "%";
+}, { passive: true });
+
+/* ————— routing ————— */
+function route() {
+  const m = location.hash.match(/^#r=(.+)$/);
+  if (m) {
+    const name = decodeURIComponent(m[1]);
+    if (reports.length) openReader(name);
+    else api.reports().then((r) => { reports = r; renderArchive(); openReader(name); }).catch(() => openReader(name));
+  } else showView("view-home");
+}
+window.addEventListener("hashchange", route);
+
+/* ————— boot ————— */
+$("#readbar").style.display = "none";
+loadReports();
+loadSchedule();
+poll();
+route();
+</script>
+</body>
+</html>

@@ -4,11 +4,11 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from agently import Agently
 
-from tools import create_browse_tool, create_search_tool
+from tools import create_browse_tool, create_dev_sources_tool, create_rss_tool, create_search_tool
 from workflow import build_daily_news_flow
 
 from .config import AppSettings
@@ -30,6 +30,7 @@ class DailyNewsCollector:
 
         search_tool = create_search_tool(self.settings)
         browse_tool = create_browse_tool(self.settings)
+        rss_tool = create_rss_tool(self.settings)
         self.flow = build_daily_news_flow(
             settings=self.settings,
             root_dir=self.root_dir,
@@ -39,14 +40,25 @@ class DailyNewsCollector:
             logger=self.logger,
             search_tool=search_tool,
             browse_tool=browse_tool,
+            rss_tool=rss_tool,
+            dev_sources_tool=create_dev_sources_tool(self.settings, root_dir=self.root_dir),
         )
 
     def collect(self, topic: str) -> dict[str, Any]:
         normalized_topic = topic.strip()
         if not normalized_topic:
             raise ValueError("Topic is required.")
-        result = self.flow.start(normalized_topic)
-        return result
+        snapshot = self.flow.start(normalized_topic)
+        if isinstance(snapshot, dict):
+            final = snapshot.get("$final_result")
+            if isinstance(final, dict):
+                return final
+            if "markdown" in snapshot:
+                return snapshot
+        raise RuntimeError(
+            f"Flow produced no valid result. "
+            f"Snapshot keys: {list(snapshot.keys()) if isinstance(snapshot, dict) else type(snapshot)}"
+        )
 
     def _configure_agently(self) -> None:
         from dotenv import find_dotenv, load_dotenv
@@ -59,7 +71,16 @@ class DailyNewsCollector:
                 "model": model_settings.get("model"),
             }
         )
-        if self._missing_env_names(model_settings.get("auth")):
+        missing_auth_envs = self._missing_env_names(model_settings.get("auth"))
+        if missing_auth_envs:
+            # Cloud presets require a key; local endpoints (ollama) can run
+            # without auth, so just drop the block there.
+            if self.settings.model.preset not in (None, "ollama"):
+                raise EnvironmentError(
+                    f"MODEL.preset '{self.settings.model.preset}' needs "
+                    + ", ".join(missing_auth_envs)
+                    + " set in the environment or .env file."
+                )
             model_settings.pop("auth", None)
 
         resolved_model_name = self._resolve_env_value(model_settings.get("model"))
@@ -89,17 +110,14 @@ class DailyNewsCollector:
     def _collect_env_names(cls, value: Any) -> list[str]:
         if isinstance(value, str):
             return re.findall(r"\$\{\s*ENV\.([^}]+?)\s*\}", value)
+        env_names: list[str] = []
         if isinstance(value, dict):
-            env_names: list[str] = []
             for item in value.values():
                 env_names.extend(cls._collect_env_names(item))
-            return env_names
-        if isinstance(value, list):
-            env_names: list[str] = []
+        elif isinstance(value, list):
             for item in value:
                 env_names.extend(cls._collect_env_names(item))
-            return env_names
-        return []
+        return env_names
 
     @classmethod
     def _missing_env_names(cls, value: Any) -> list[str]:

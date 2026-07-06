@@ -1,12 +1,35 @@
 # Debug
 DEBUG: false
 
+# Topics used by `python app.py --all` (or DailyNewsCollector.exe --all)
+# so a single scheduled run can produce several briefings.
+TOPICS:
+  - AI agents
+  - large language models
+  - local LLMs
+  - cybersecurity
+  - AI coding tools
+  - open source
+  - robotics
+  - tech startups
+
 # Shared proxy for model/search/browse. Leave empty if not needed.
-PROXY: http://127.0.0.1:7890
+PROXY:
 
 # Agently v4 model configuration.
-# Use Agently v4 `${ENV.xxx}` placeholders and let Agently resolve them from
-# the current environment or `.env` file when applying model settings.
+#
+# EASIEST: pick a preset and put the matching API key in .env — done.
+#   preset: openai      -> OPENAI_API_KEY
+#   preset: openrouter  -> OPENROUTER_API_KEY   (any model on openrouter.ai)
+#   preset: groq        -> GROQ_API_KEY         (very fast Llama/Qwen)
+#   preset: deepseek    -> DEEPSEEK_API_KEY
+#   preset: together    -> TOGETHER_API_KEY
+#   preset: ollama      -> no key needed        (local, default)
+# `model:` overrides the preset's default model. Set AGENTLY_NEWS_MODEL in
+# .env to switch models without editing this file.
+#
+# ADVANCED: skip `preset` and set base_url/auth yourself with `${ENV.xxx}`
+# placeholders resolved from the environment or `.env`.
 MODEL:
   provider: OpenAICompatible
   base_url: ${ENV.DEEPSEEK_BASE_URL}
@@ -16,26 +39,41 @@ MODEL:
     api_key: ${ENV.DEEPSEEK_API_KEY}
   request_options:
     temperature: 0.2
+    extra_body:
+      think: false
 
 SEARCH:
-  max_results: 8
+  max_results: 10
   timelimit: d
+  # region: set to match your preferred news source language.
+  # Use "us-en" for English news, "cn-zh" for Chinese news, etc.
+  # When output_language is Chinese, "cn-zh" returns better-matched results.
   region: us-en
-  backend: auto
+  backend: yahoo
+  # Optional RSS/Atom feeds used as an extra candidate pool next to the
+  # search engine (more reliable, no rate limits). Keyword-matched per column.
+  rss_feeds:
+    - https://techcrunch.com/category/artificial-intelligence/feed/
+    - https://www.theverge.com/rss/index.xml
+    - https://feeds.arstechnica.com/arstechnica/index
+    - https://www.wired.com/feed/rss
 
 BROWSE:
-  enable_playwright: true
+  enable_playwright: false
   playwright_headless: true
+  # When direct browsing fails (bot walls, JS-only pages), retry through the
+  # free Jina Reader proxy (https://r.jina.ai) to get clean markdown content.
+  enable_jina_fallback: true
   response_mode: markdown
-  max_content_length: 12000
+  max_content_length: 4000
   min_content_length: 80
 
 WORKFLOW:
-  max_column_num: 3
-  max_news_per_column: 3
-  output_language: Chinese
-  column_concurrency: 3
-  summary_concurrency: 3
+  max_column_num: 2
+  max_news_per_column: 2
+  output_language: English
+  column_concurrency: 1
+  summary_concurrency: 1
 
 OUTLINE:
   use_customized: false
@@ -54,3 +92,118 @@ OUTLINE:
 
 OUTPUT:
   directory: outputs
+  # Formats to save for each report. Markdown is always written.
+  # Available: markdown, json, html
+  formats:
+    - markdown
+    - json
+    - html
+  # Maintain outputs/INDEX.md with a link to every generated report.
+  update_index: true
+  # Maintain outputs/index.html, a browsable dashboard of all reports.
+  update_dashboard: true
+
+SUMMARY:
+  # Generate a "Key Takeaways" executive summary at the top of each report.
+  enable_tldr: true
+
+# Developer-pulse mode (`--dev` or the panel's dev button): pulls straight
+# from GitHub trending/new repos, Hacker News, Reddit, Lobsters, dev.to,
+# daily.dev, and Product Hunt with a conversational tone, no web search.
+DEV_PULSE:
+  reddit_subreddits:
+    - programming
+    - webdev
+    - LocalLLaMA
+    - MachineLearning
+    - artificial
+    - selfhosted
+    - netsec
+    - devops
+    - ExperiencedDevs
+  min_hn_points: 80
+  min_reddit_score: 100
+  min_lobsters_score: 10
+  min_devto_reactions: 20
+  min_dailydev_upvotes: 20
+  # "GitHub Rising": repos gaining this many stars in ~24h count as rising,
+  # even if they never reach the trending page (data: OSS Insight).
+  min_rising_stars: 30
+  # Extra RSS/Atom feeds merged into the "Community Buzz" column — the bridge
+  # for anything without a public API (an X/Twitter account via RSSHub or
+  # nitter, engineering blogs, newsletters...).
+  extra_feeds:
+    - https://simonwillison.net/atom/everything/
+    - https://github.blog/feed/
+    - https://stackoverflow.blog/feed/
+    - https://newsletter.pragmaticengineer.com/feed
+  #  - https://rsshub.app/twitter/user/OpenAI
+  #  - https://blog.rust-lang.org/feed.xml
+  # Optional: limit GitHub trending/new to one language, e.g. python
+  github_language:
+  # "Fresh Releases" column: repos whose new releases you want summarized
+  # (what changed / anything breaking / upgrade or wait). Empty list disables
+  # the column. Set GITHUB_TOKEN in .env for higher API rate limits.
+  watch_repos:
+    - ollama/ollama
+    - microsoft/vscode
+    - python/cpython
+    - nodejs/node
+    - anthropics/claude-code
+    - ggml-org/llama.cpp
+    - huggingface/transformers
+    - openai/codex
+    - google-gemini/gemini-cli
+    - langchain-ai/langchain
+    - vllm-project/vllm
+    - microsoft/TypeScript
+    - golang/go
+    - rust-lang/rust
+    - facebook/react
+    - vitejs/vite
+    - denoland/deno
+    - comfyanonymous/ComfyUI
+  release_window_days: 3
+  # "Security Watch" column: package ecosystems to monitor for fresh
+  # advisories (pip, npm, maven, nuget, rubygems, go, rust, composer...).
+  # Empty list disables the column.
+  security_ecosystems:
+    - pip
+    - npm
+    - go
+    - rust
+    - maven
+  security_min_severity: high
+  # Your stack: when an item genuinely relates to it, the summary adds one
+  # sentence on what it means for you. Leave empty to disable.
+  stack: []
+  #  - Python
+  #  - FastAPI
+  #  - React
+
+HISTORY:
+  # Remember published story URLs so consecutive runs skip stories that
+  # already appeared in earlier reports. Disable per run with --allow-repeats.
+  enabled: true
+  retention_days: 30
+  path: outputs/.history.json
+
+DELIVERY:
+  telegram:
+    # Send the report to a Telegram chat after generation.
+    # Create a bot with @BotFather, then set the env vars referenced below.
+    enabled: false
+    bot_token: ${TELEGRAM_BOT_TOKEN}
+    chat_id: ${TELEGRAM_CHAT_ID}
+    # channel = news-channel feel: opening headlines post, then one post per
+    #           story (with photo when available), then a closing stats post.
+    # digest  = the old compact multi-story messages.
+    send_style: channel
+    # Pause between channel-style posts, in seconds.
+    message_delay: 1.8
+    # Also attach the standalone HTML report as a document.
+    send_html_file: true
+  webhook:
+    # POST the report JSON (title, tldr, columns, markdown) to any URL.
+    enabled: false
+    url: ${NEWS_WEBHOOK_URL}

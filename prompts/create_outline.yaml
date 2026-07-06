@@ -13,7 +13,8 @@ instruct:
   - Avoid making column_requirement depend on very specific version numbers, exact financing stages, exact pull requests, or unverified assumptions unless the topic itself clearly requires that specificity.
   - Prefer column angles that can still include adjacent and strongly related developments if they help readers understand the topic.
   - search_keywords must be concise and search-engine friendly, ideally 4-10 terms instead of a long sentence.
-  - Prefer entity names and English or mixed-language keywords when the topic includes product names, project names, or proper nouns.
+  - ALWAYS write search_keywords in English or with English terms, regardless of the output language. English keywords produce far better search results across all regions.
+  - Prefer entity names and English keywords; only include non-English terms when they are widely-used proper nouns with no English equivalent.
   - Avoid stuffing search_keywords with excessive years, clauses, or explanatory text.
   - report_title should look like a publishable briefing headline in {info.output_language}.
 output:

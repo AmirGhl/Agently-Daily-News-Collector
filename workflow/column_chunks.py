@@ -10,9 +10,13 @@ from .common import (
     DailyNewsChunkConfig,
     create_editor_agent,
     is_chinese_language,
+    require_dev_sources_tool,
     require_logger,
+    require_rss_tool,
     require_search_tool,
     safe_int,
+    strip_greeting,
+    tone_instruction,
 )
 from .summary_chunks import pick_news
 
@@ -39,6 +43,8 @@ def create_search_column_news_chunk(
                 require_search_tool(data),
                 column_outline,
                 topic=str(request.get("topic") or ""),
+                rss_tool=require_rss_tool(data),
+                dev_sources_tool=require_dev_sources_tool(data),
             )
         except Exception as exc:
             logger.exception("[Column Search Failed] %s: %s", title, exc)
@@ -98,6 +104,8 @@ def create_write_column_chunk(
 
         column_outline = context["column_outline"]
         title = str(column_outline.get("column_title") or "").strip()
+        if not title or not context.get("summarized_news"):
+            return None
         logger = require_logger(data)
         try:
             column_result = await _write_column(
@@ -167,9 +175,12 @@ async def search_news(
     column_outline: dict[str, Any],
     *,
     topic: str,
+    rss_tool=None,
+    dev_sources_tool=None,
 ) -> list[dict[str, Any]]:
     query = str(column_outline.get("search_keywords") or "").strip()
-    if not query:
+    source_channels = column_outline.get("source_channels")
+    if not query and not source_channels:
         return []
     queries = build_search_queries(
         search_keywords=query,
@@ -177,6 +188,78 @@ async def search_news(
     )
     normalized_results = []
     seen_urls: set[str] = set()
+
+    def append_normalized(raw: dict[str, Any]) -> bool:
+        title = str(raw.get("title") or "").strip()
+        url = str(raw.get("url") or raw.get("href") or "").strip()
+        if not title or not url or url in seen_urls:
+            return False
+        if config.history is not None and config.history.is_seen(url):
+            logger.info("[Skip Already Published] %s", title)
+            return False
+        seen_urls.add(url)
+        normalized: dict[str, Any] = {
+            "id": len(normalized_results),
+            "title": title,
+            "brief": str(raw.get("body") or raw.get("snippet") or "").strip(),
+            "url": url,
+            "source": str(raw.get("source") or "").strip(),
+            "date": str(raw.get("date") or "").strip(),
+        }
+        # Structured channels can label items (release/advisory) and ship the
+        # full content inline so the summarize stage can skip browsing.
+        if raw.get("kind"):
+            normalized["kind"] = str(raw["kind"])
+        if raw.get("content"):
+            normalized["content"] = str(raw["content"])
+        if raw.get("image"):
+            normalized["image"] = str(raw["image"])
+        normalized_results.append(normalized)
+        return True
+
+    # Dev-pulse columns pull directly from structured channels (GitHub, HN,
+    # Reddit, Lobsters) instead of running web-search queries.
+    if isinstance(source_channels, list) and source_channels and dev_sources_tool is not None:
+        try:
+            channel_items = await dev_sources_tool.fetch_channels(
+                [str(channel) for channel in source_channels],
+                limit_per_channel=config.settings.search.max_results,
+            )
+        except Exception as exc:
+            logger.warning("[Dev Sources Failed] %s", exc)
+            channel_items = []
+        for raw in channel_items:
+            if isinstance(raw, dict):
+                append_normalized(raw)
+        logger.info(
+            "[Dev Sources] %s => %s items",
+            ",".join(str(channel) for channel in source_channels),
+            len(normalized_results),
+        )
+        return normalized_results
+
+    if rss_tool is not None and getattr(rss_tool, "has_feeds", False):
+        rss_tokens = _dedupe_tokens(
+            [*_extract_search_tokens(topic), *_extract_search_tokens(query)]
+        )
+        try:
+            rss_items = await rss_tool.find_news(
+                tokens=rss_tokens,
+                timelimit=config.settings.search.timelimit,
+                max_results=config.settings.search.max_results,
+            )
+        except Exception as exc:
+            logger.warning("[RSS Fetch Failed] %s", exc)
+            rss_items = []
+        rss_added = sum(
+            1 for raw in rss_items if isinstance(raw, dict) and append_normalized(raw)
+        )
+        if rss_added:
+            logger.info("[RSS Matched] %s items", rss_added)
+
+    # RSS items are a bonus pool: the search engine still contributes up to
+    # max_results of its own on top of whatever the feeds matched.
+    result_target = config.settings.search.max_results + len(normalized_results)
     for candidate in queries:
         try:
             raw_results = await search_tool.search_news(
@@ -192,26 +275,12 @@ async def search_news(
         for raw in raw_results or []:
             if not isinstance(raw, dict):
                 continue
-            title = str(raw.get("title") or "").strip()
-            url = str(raw.get("url") or raw.get("href") or "").strip()
-            if not title or not url or url in seen_urls:
-                continue
-            seen_urls.add(url)
-            normalized_results.append(
-                {
-                    "id": len(normalized_results),
-                    "title": title,
-                    "brief": str(raw.get("body") or raw.get("snippet") or "").strip(),
-                    "url": url,
-                    "source": str(raw.get("source") or "").strip(),
-                    "date": str(raw.get("date") or "").strip(),
-                }
-            )
-            added_count += 1
-            if len(normalized_results) >= config.settings.search.max_results:
+            if append_normalized(raw):
+                added_count += 1
+            if len(normalized_results) >= result_target:
                 break
         logger.info("[Search Attempt] %s => %s", candidate, added_count)
-        if len(normalized_results) >= config.settings.search.max_results:
+        if len(normalized_results) >= result_target:
             break
     return normalized_results
 
@@ -225,7 +294,10 @@ def build_search_queries(
     seen: set[str] = set()
 
     def add(query: str) -> None:
-        normalized = re.sub(r"\s+", " ", query).strip()
+        # Search backends treat comma/slash separated keyword lists as one
+        # literal phrase and return zero results, so collapse separators first.
+        normalized = re.sub(r"[,;，、；/|]+", " ", query)
+        normalized = re.sub(r"\s+", " ", normalized).strip()
         if not normalized or normalized in seen:
             return
         seen.add(normalized)
@@ -255,7 +327,7 @@ def build_search_queries(
 
 
 def _extract_search_tokens(text: str) -> list[str]:
-    tokens = re.findall(r"[A-Za-z0-9][A-Za-z0-9._+-]*", text)
+    tokens = re.findall(r"[A-Za-z0-9][A-Za-z0-9._+-]*|[一-鿿぀-ヿ가-힯]+", text)
     return _dedupe_tokens(tokens)[:8]
 
 
@@ -282,9 +354,9 @@ async def _write_column(
         slimmed_news.append(
             {
                 "id": index,
-                "title": news["title"],
-                "summary": news["summary"],
-                "url": news["url"],
+                "title": news.get("title", ""),
+                "summary": news.get("summary", ""),
+                "url": news.get("url", ""),
                 "source": news.get("source", ""),
                 "date": news.get("date", ""),
                 "recommend_comment": news.get("recommend_comment", ""),
@@ -295,11 +367,12 @@ async def _write_column(
         create_editor_agent(kind="column")
         .load_yaml_prompt(
             config.prompt_dir / "write_column.yaml",
-            {
+            mappings={
                 "news_list": slimmed_news,
-                "column_title": column_outline["column_title"],
-                "column_requirement": column_outline["column_requirement"],
+                "column_title": column_outline.get("column_title", ""),
+                "column_requirement": column_outline.get("column_requirement", ""),
                 "language": config.settings.workflow.output_language,
+                "tone_instruction": tone_instruction(config.settings),
             },
         )
         .async_start(
@@ -324,7 +397,7 @@ async def _write_column(
             continue
         used_ids.add(news_id)
         final_item = copy.deepcopy(summarized_news[news_id])
-        refined_comment = str(item.get("recommend_comment") or "").strip()
+        refined_comment = strip_greeting(str(item.get("recommend_comment") or "").strip())
         if refined_comment:
             final_item["recommend_comment"] = refined_comment
         final_news_list.append(final_item)
@@ -332,7 +405,7 @@ async def _write_column(
     if not final_news_list:
         final_news_list = summarized_news[: config.settings.workflow.max_news_per_column]
 
-    prologue = str(column_result.get("prologue") or "").strip()
+    prologue = strip_greeting(str(column_result.get("prologue") or "").strip())
     if not prologue:
         prologue = _build_fallback_prologue(config, column_outline, final_news_list)
 
@@ -349,7 +422,7 @@ def _build_fallback_column(
     summarized_news: list[dict[str, Any]],
 ) -> dict[str, Any]:
     return {
-        "title": column_outline["column_title"],
+        "title": str(column_outline.get("column_title") or ""),
         "prologue": _build_fallback_prologue(config, column_outline, summarized_news),
         "news_list": summarized_news[: config.settings.workflow.max_news_per_column],
     }
@@ -363,12 +436,13 @@ def _build_fallback_prologue(
     if not news_list:
         return str(column_outline.get("column_requirement") or "")
 
+    col_title = str(column_outline.get("column_title") or "")
     if is_chinese_language(config.settings.workflow.output_language):
-        lead_titles = "，".join(f"《{news['title']}》" for news in news_list[:3])
-        return f"本栏目围绕“{column_outline['column_title']}”整理了以下重点内容：{lead_titles}。"
+        lead_titles = "、".join(f"《{news.get('title', '')}》" for news in news_list[:3])
+        return f'本栏目围绕"{col_title}"整理了以下重点内容：{lead_titles}。'
 
-    lead_titles = ", ".join(news["title"] for news in news_list[:3])
-    return f"This section highlights the most relevant stories for {column_outline['column_title']}: {lead_titles}."
+    lead_titles = ", ".join(news.get("title", "") for news in news_list[:3])
+    return f"This section highlights the most relevant stories for {col_title}: {lead_titles}."
 
 
 __all__ = [

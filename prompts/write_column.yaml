@@ -3,10 +3,14 @@ info:
   column_title: ${column_title}
   column_requirement: ${column_requirement}
   language: ${language}
+  tone: ${tone_instruction}
 instruct:
   - Build the final column using the shortlisted stories.
+  - "{info.tone}"
   - Keep the strongest non-duplicated stories only.
-  - prologue should be 2 to 3 sentences in {info.language}.
+  - "CRITICAL: never open the prologue or any comment with a greeting (no 'سلام', 'Hello', 'خب'...); start with substance."
+  - prologue should be 2 to 4 sentences in {info.language} that genuinely orient the reader - what stands out in this section today, what the common thread is, and why it deserves attention right now. Never write generic filler like 'in this section we look at...'.
+  - recommend_comment must explain the practical why-it-matters in 1 to 2 sentences - what the reader can do with it, what risk it removes, or what trend it signals. Never a restatement of the title.
   - When useful, cite key stories with Markdown links like [title](url).
 output:
   prologue:

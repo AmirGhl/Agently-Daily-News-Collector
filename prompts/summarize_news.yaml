@@ -3,8 +3,15 @@ info:
   news_title: ${news_title}
   column_requirement: ${column_requirement}
   language: ${language}
+  tone: ${tone_instruction}
+  reader: ${reader_context}
 instruct:
   - Read the browsed page content and extract the core facts related to {info.news_title}.
+  - "{info.tone}"
+  - "{info.reader}"
+  - "CRITICAL: never open with a greeting or preamble (no 'سلام', 'Hello', 'خب'...); the first sentence must already state a concrete fact."
+  - Lead with the single most newsworthy fact, then add the essential context - who, what, why it matters now.
+  - Include concrete numbers, names, and dates from the article when present.
   - This stage is the final relevance check because you can read the full page content here.
   - If the page content is too thin, inaccessible, or clearly irrelevant to {info.column_requirement}, set can_summarize to false.
   - If the page contains enough concrete facts that are meaningfully related to the column, set can_summarize to true even when the fit is not perfect.

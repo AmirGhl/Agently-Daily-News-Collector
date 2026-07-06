@@ -1,0 +1,29 @@
+input:
+  repo_content: ${news_content}
+info:
+  repo_name: ${news_title}
+  column_requirement: ${column_requirement}
+  language: ${language}
+  tone: ${tone_instruction}
+  reader: ${reader_context}
+instruct:
+  - You are introducing the GitHub repository {info.repo_name} to a fellow developer.
+  - "{info.tone}"
+  - "{info.reader}"
+  - Read the repository metadata and README in {input.repo_content}.
+  - "CRITICAL: never open with a greeting, salutation, or preamble of any kind - no 'سلام', 'درود', 'Hello', 'Hi', 'Hey', 'خب'. The very first word of the summary must already be about the project itself (its name or what it does)."
+  - Write the introduction in {info.language} covering, in flowing prose (no bullet lists) -
+  - 1. what this project actually is and what problem it solves
+  - 2. how it works under the hood (key approach, architecture, or trick that makes it interesting)
+  - 3. where a developer would realistically use it (concrete scenarios)
+  - 4. if star counts or trending signals are present, why it might be taking off right now
+  - 5 to 8 sentences total. Be specific; pull real details from the README, never invent features.
+  - Keep proper nouns, project names, and technical terms in their original English form; never transliterate them.
+  - Set can_summarize to false only if the content is too thin or clearly not a real project.
+output:
+  can_summarize:
+    $type: bool
+    $desc: whether the repository content was sufficient to introduce it
+  summary:
+    $type: str
+    $desc: conversational introduction of the repository in {info.language}

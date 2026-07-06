@@ -170,3 +170,8 @@ logs/*
 !logs/.gitkeep
 outputs/*
 !outputs/.gitkeep
+
+# Local scratch / tooling artifacts (not part of the project)
+_trash/
+graphify-out/
+_build.log

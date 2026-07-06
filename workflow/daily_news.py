@@ -18,10 +18,9 @@ from .report_chunks import (
     create_render_report_chunk,
 )
 from .summary_chunks import (
-    create_dispatch_summary_batch_chunk,
     create_finalize_summary_chunk,
-    create_merge_summary_batch_chunk,
     create_prepare_summary_candidates_chunk,
+    create_signal_summary_done_chunk,
     create_summarize_candidate_chunk,
 )
 
@@ -30,33 +29,33 @@ def build_summary_sub_flow(
     *,
     chunk_config: DailyNewsChunkConfig,
 ) -> TriggerFlow:
+    # All candidates go through a single for_each pass; each candidate skips
+    # itself cheaply once the per-column quota is reached. Do NOT rebuild this
+    # as a dispatch/merge loop that re-emits its own trigger event: TriggerFlow
+    # never fires an event re-emitted from inside its own handler chain, which
+    # hangs the whole pipeline.
     flow = TriggerFlow(name="daily-news-summary-sub-flow")
     prepare_summary_candidates = flow.chunk("prepare_summary_candidates")(
         create_prepare_summary_candidates_chunk(chunk_config)
     )
-    dispatch_summary_batch = flow.chunk("dispatch_summary_batch")(
-        create_dispatch_summary_batch_chunk(chunk_config)
-    )
     summarize_candidate = flow.chunk("summarize_candidate")(
         create_summarize_candidate_chunk(chunk_config)
     )
-    merge_summary_batch = flow.chunk("merge_summary_batch")(
-        create_merge_summary_batch_chunk(chunk_config)
+    signal_summary_done = flow.chunk("signal_summary_done")(
+        create_signal_summary_done_chunk(chunk_config)
     )
     finalize_summary = flow.chunk("finalize_summary")(
         create_finalize_summary_chunk(chunk_config)
     )
 
+    flow.when("Summary.Done").to(finalize_summary).end()
     (
-        flow.when("Summary.Dispatch")
-        .to(dispatch_summary_batch)
+        flow.to(prepare_summary_candidates)
         .for_each(concurrency=chunk_config.settings.workflow.summary_concurrency)
         .to(summarize_candidate)
         .end_for_each()
-        .to(merge_summary_batch)
+        .to(signal_summary_done)
     )
-    flow.when("Summary.Done").to(finalize_summary).end()
-    flow.to(prepare_summary_candidates)
     return flow
 
 
@@ -99,11 +98,20 @@ def build_daily_news_flow(
     model_label: str,
 ) -> TriggerFlow:
     resolved_root_dir = Path(root_dir).resolve()
+    history = None
+    if settings.history.enabled:
+        from news_collector.history import NewsHistory
+
+        history_path = Path(settings.history.path)
+        if not history_path.is_absolute():
+            history_path = resolved_root_dir / history_path
+        history = NewsHistory(history_path, retention_days=settings.history.retention_days)
     chunk_config = DailyNewsChunkConfig(
         settings=settings,
         prompt_dir=resolved_root_dir / "prompts",
         output_dir=resolved_root_dir / settings.output.directory,
         model_label=model_label,
+        history=history,
     )
     flow = TriggerFlow(name="daily-news-collector-v4")
     column_sub_flow = build_column_sub_flow(chunk_config=chunk_config)
@@ -126,6 +134,8 @@ def build_daily_news_flow(
                     "logger": "resources.logger",
                     "search_tool": "resources.search_tool",
                     "browse_tool": "resources.browse_tool",
+                    "rss_tool": "resources.rss_tool",
+                    "dev_sources_tool": "resources.dev_sources_tool",
                 },
             },
             write_back={

@@ -16,6 +16,22 @@ def _labels_for_language(language: str) -> dict[str, str]:
             "summary": "摘要",
             "comment": "推荐理由",
             "model": "模型",
+            "tldr": "要点速览",
+            "read_source": "阅读原文",
+        }
+    if "persian" in normalized or "farsi" in normalized or normalized.startswith("fa"):
+        return {
+            "generated_at": "زمان تولید",
+            "topic": "موضوع",
+            "prologue": "مقدمه",
+            "news_list": "فهرست اخبار",
+            "source": "منبع",
+            "date": "تاریخ",
+            "summary": "خلاصه",
+            "comment": "چرا مهم است",
+            "model": "مدل",
+            "tldr": "نکات کلیدی",
+            "read_source": "مشاهده منبع",
         }
     return {
         "generated_at": "Generated At",
@@ -27,6 +43,8 @@ def _labels_for_language(language: str) -> dict[str, str]:
         "summary": "Summary",
         "comment": "Why It Matters",
         "model": "Model",
+        "tldr": "Key Takeaways",
+        "read_source": "Read the source",
     }
 
 
@@ -38,6 +56,7 @@ def render_markdown(
     language: str,
     columns: list[dict[str, Any]],
     model_label: str,
+    tldr: list[str] | None = None,
 ) -> str:
     labels = _labels_for_language(language)
     lines = [
@@ -47,6 +66,11 @@ def render_markdown(
         f"> {labels['topic']}: {topic}",
         "",
     ]
+
+    if tldr:
+        lines.extend([f"## {labels['tldr']}", ""])
+        lines.extend(f"- {takeaway}" for takeaway in tldr)
+        lines.append("")
 
     for column in columns:
         lines.extend(
@@ -63,7 +87,7 @@ def render_markdown(
         )
 
         for news in column["news_list"]:
-            lines.append(f"- [{news['title']}]({news['url']})")
+            lines.append(f"- [{news.get('title', '')}]({news.get('url', '')})")
             meta_parts = []
             if news.get("source"):
                 meta_parts.append(f"{labels['source']}: {news['source']}")
@@ -71,8 +95,8 @@ def render_markdown(
                 meta_parts.append(f"{labels['date']}: {news['date']}")
             if meta_parts:
                 lines.append(f"  - {' | '.join(meta_parts)}")
-            lines.append(f"  - {labels['summary']}: {news['summary']}")
-            lines.append(f"  - {labels['comment']}: {news['recommend_comment']}")
+            lines.append(f"  - {labels['summary']}: {news.get('summary', '')}")
+            lines.append(f"  - {labels['comment']}: {news.get('recommend_comment', '')}")
             lines.append("")
 
     lines.extend(

@@ -1,0 +1,13 @@
+{
+  "name": "سردبیر — Daily News Collector",
+  "short_name": "سردبیر",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#141312",
+  "theme_color": "#141312",
+  "dir": "rtl",
+  "lang": "fa",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

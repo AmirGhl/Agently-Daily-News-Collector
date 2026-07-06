@@ -9,6 +9,7 @@ from typing import Any, cast
 from agently import Agently, TriggerFlowRuntimeData
 
 from news_collector.config import AppSettings
+from news_collector.history import NewsHistory
 from tools.base import BrowseToolProtocol, SearchToolProtocol
 
 
@@ -18,6 +19,7 @@ class DailyNewsChunkConfig:
     prompt_dir: Path
     output_dir: Path
     model_label: str
+    history: NewsHistory | None = None
 
 
 def create_editor_agent(*, kind: str):
@@ -54,6 +56,38 @@ def is_chinese_language(language: str) -> bool:
     return "chinese" in normalized or normalized.startswith("zh")
 
 
+def tone_instruction(settings: AppSettings) -> str:
+    if settings.workflow.tone == "conversational":
+        return (
+            "Write like a friendly senior developer chatting with a colleague: "
+            "warm, direct, plain language, address the reader as 'you', "
+            "and absolutely no corporate press-release phrasing. "
+            "NEVER open with a greeting or salutation of any kind "
+            "(no 'Hello', 'Hi', 'Hey', 'سلام', 'درود', 'خب') — start "
+            "mid-conversation, directly with the first concrete fact."
+        )
+    return (
+        "Keep a concise, professional news-brief tone. "
+        "Never open with a greeting or preamble; start with the substance."
+    )
+
+
+# Canonical implementation lives in news_collector.textutils so the
+# renderers and Telegram delivery can clean historical reports too.
+from news_collector.textutils import strip_greeting  # noqa: E402  (re-export)
+
+
+def reader_context(settings: AppSettings) -> str:
+    stack = settings.dev_pulse.stack
+    if not stack:
+        return "No specific reader profile."
+    return (
+        f"The reader's main stack: {', '.join(stack)}. "
+        "When an item genuinely connects to that stack, add one sentence on "
+        "what it means for them - never force a connection that is not there."
+    )
+
+
 def safe_filename(name: str) -> str:
     cleaned = re.sub(r"[\\/:*?\"<>|]+", "-", name)
     cleaned = re.sub(r"\s+", " ", cleaned).strip(" .-_")
@@ -79,13 +113,30 @@ def require_browse_tool(data: TriggerFlowRuntimeData) -> BrowseToolProtocol:
     return cast(BrowseToolProtocol, data.require_resource("browse_tool"))
 
 
+def require_rss_tool(data: TriggerFlowRuntimeData) -> "RssFeedTool":
+    from tools.rss import RssFeedTool
+
+    return cast(RssFeedTool, data.require_resource("rss_tool"))
+
+
+def require_dev_sources_tool(data: TriggerFlowRuntimeData) -> "DevSourcesTool":
+    from tools.dev_sources import DevSourcesTool
+
+    return cast(DevSourcesTool, data.require_resource("dev_sources_tool"))
+
+
 __all__ = [
     "DailyNewsChunkConfig",
     "create_editor_agent",
     "is_chinese_language",
+    "strip_greeting",
+    "tone_instruction",
+    "reader_context",
     "safe_filename",
     "safe_int",
     "require_logger",
     "require_search_tool",
     "require_browse_tool",
+    "require_rss_tool",
+    "require_dev_sources_tool",
 ]

@@ -1,0 +1,32 @@
+input: ${reports}
+info:
+  today: ${today}
+  language: ${language}
+  tone: ${tone_instruction}
+instruct:
+  - "{input} contains the daily briefings generated over the last 7 days."
+  - "{info.tone}"
+  - Write a weekly digest in {info.language} that a reader who missed the whole week can catch up with in two minutes.
+  - overview must be 2 to 3 short paragraphs connecting the week's biggest threads and patterns, not a list of everything.
+  - highlights are the 5 to 8 individual items from the week that mattered most; pick across different days and different kinds (repos, releases, security, news).
+  - For each highlight, reuse the exact title and url from the source material and explain in one or two sentences why it was one of the week's most important items.
+  - report_title should read like a weekly roundup headline in {info.language} and may mention the date range.
+output:
+  report_title:
+    $type: str
+    $desc: weekly roundup headline in {info.language}
+  overview:
+    $type: str
+    $desc: 2-3 paragraph narrative of the week in {info.language}
+  highlights:
+    $type:
+      - title:
+          $type: str
+          $desc: exact title of the item, copied from the source material
+        url:
+          $type: str
+          $desc: exact url of the item, copied from the source material
+        reason:
+          $type: str
+          $desc: one or two sentences on why this mattered this week, in {info.language}
+    $desc: the 5-8 most important items of the week

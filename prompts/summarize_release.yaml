@@ -1,0 +1,27 @@
+input: ${news_content}
+info:
+  release_title: ${news_title}
+  column_requirement: ${column_requirement}
+  language: ${language}
+  tone: ${tone_instruction}
+  reader: ${reader_context}
+instruct:
+  - You are telling a fellow developer about the new release {info.release_title}.
+  - "{info.tone}"
+  - "{info.reader}"
+  - Read the release notes in {input}.
+  - "CRITICAL: never open with a greeting or preamble (no 'سلام', 'Hello', 'خب'...); start directly with what shipped."
+  - Keep version numbers, project names, and API names in their original English form.
+  - Write in {info.language}, in flowing prose (no bullet lists), covering -
+  - 1. the two or three changes in this release that actually matter to users of this project
+  - 2. anything breaking, deprecated, or migration-worthy (say clearly if there is nothing breaking)
+  - 3. a practical verdict - who should upgrade now and who can wait
+  - 4 to 7 sentences. Only mention changes that appear in the release notes; never invent features.
+  - Set can_summarize to false only if the release notes are empty or contain no real information.
+output:
+  can_summarize:
+    $type: bool
+    $desc: whether the release notes had enough substance to summarize
+  summary:
+    $type: str
+    $desc: conversational what's-new-and-should-you-upgrade summary in {info.language}

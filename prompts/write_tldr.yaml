@@ -1,0 +1,19 @@
+input: ${columns}
+info:
+  report_title: ${report_title}
+  language: ${language}
+  tone: ${tone_instruction}
+instruct:
+  - Read every column and story of today's briefing in {input}.
+  - "{info.tone}"
+  - "CRITICAL: never open any takeaway with a greeting or filler; every takeaway starts with the fact itself."
+  - Write 3 to 5 executive key takeaways in {info.language} for a busy reader who only has 30 seconds.
+  - Each takeaway must be one standalone sentence built on concrete facts from the stories, not generic observations.
+  - Order takeaways from most important to least important.
+  - Do not repeat the report title, do not number the takeaways, and do not add a closing remark.
+output:
+  takeaways:
+    $type:
+      - $type: str
+        $desc: one standalone key takeaway sentence in {info.language}
+    $desc: 3 to 5 executive takeaways covering the most important developments of the day
