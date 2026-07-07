@@ -1,0 +1,43 @@
+name: Build Windows release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt pyinstaller
+
+      - run: pyinstaller DailyNewsCollector.spec --noconfirm
+
+      - name: Package
+        shell: pwsh
+        run: >
+          Compress-Archive -Path dist/DailyNewsCollector.exe
+          -DestinationPath "DailyNewsCollector-${{ github.ref_name }}-windows-x64.zip"
+
+      - name: Upload to release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" \
+            --title "$TAG — Daily News Collector (Windows)" \
+            --generate-notes --verify-tag \
+            || echo "Release $TAG already exists — uploading asset only."
+          gh release upload "$TAG" \
+            "DailyNewsCollector-$TAG-windows-x64.zip" --clobber

@@ -1,0 +1,83 @@
+name: Daily briefing to GitHub Pages
+
+on:
+  schedule:
+    # 04:30 UTC = 08:00 Tehran
+    - cron: "30 4 * * *"
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: "Topic (leave empty for developer pulse)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      # Runners are stateless: restore yesterday's outputs so the archive,
+      # dashboard, RSS feed and .history.json (anti-repeat) keep growing.
+      - name: Restore previous outputs
+        uses: actions/cache/restore@v4
+        with:
+          path: outputs
+          key: outputs-${{ github.run_id }}
+          restore-keys: outputs-
+
+      - name: Generate briefing
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DEEPSEEK_BASE_URL: ${{ secrets.DEEPSEEK_BASE_URL }}
+          DEEPSEEK_DEFAULT_MODEL: ${{ secrets.DEEPSEEK_DEFAULT_MODEL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+          SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+        run: |
+          TOPIC="${{ inputs.topic }}"
+          if [ -n "$TOPIC" ]; then
+            python app.py "$TOPIC" --no-deliver --quiet -f markdown json html
+          else
+            python app.py --dev --no-deliver --quiet -f markdown json html
+          fi
+
+      - name: Save outputs for the next run
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: outputs
+          key: outputs-${{ github.run_id }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: outputs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
