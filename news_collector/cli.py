@@ -9,7 +9,7 @@ from pathlib import Path
 from dotenv import find_dotenv, load_dotenv
 
 from .config import OUTPUT_FORMAT_VALUES, AppSettings
-from .collector import DailyNewsCollector
+from .collector import DailyNewsCollector, run_with_model_fallback
 from .delivery import deliver_report
 from .logging_utils import configure_logging
 
@@ -129,6 +129,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="with --ui: start the panel without opening a browser tab (autostart)",
     )
     parser.add_argument(
+        "--bot",
+        action="store_true",
+        help="run the two-way Telegram bot: reply to /news, /dev and /weekly commands",
+    )
+    parser.add_argument(
         "--allow-repeats",
         action="store_true",
         help="allow stories that already appeared in previous reports",
@@ -171,7 +176,9 @@ def _apply_overrides(settings: AppSettings, args: argparse.Namespace) -> None:
     if args.output_dir:
         settings.output.directory = args.output_dir
     if args.allow_repeats:
-        settings.history.enabled = False
+        # Keep tracking history but stop filtering: repeated stories flow
+        # through flagged is_new=False so reports can badge the fresh ones.
+        settings.history.filter_repeats = False
     if args.no_tldr:
         settings.summary.enable_tldr = False
     if args.no_deliver:
@@ -209,6 +216,15 @@ def main() -> int:
         debug=settings.debug,
         log_dir=ROOT_DIR / "logs",
     )
+
+    if args.bot:
+        from .telegram_bot import run_bot
+
+        return run_bot(
+            settings_path=Path(args.settings),
+            root_dir=ROOT_DIR,
+            logger=logger,
+        )
 
     if args.rerender:
         from .rerender import rerender_reports
@@ -265,14 +281,15 @@ def main() -> int:
 
     failures = 0
     for topic in topics:
-        # A fresh collector per topic keeps every TriggerFlow single-use.
-        collector = DailyNewsCollector(
-            settings=settings,
-            root_dir=ROOT_DIR,
-            logger=logger,
-        )
+        # A fresh collector per topic keeps every TriggerFlow single-use;
+        # run_with_model_fallback retries with MODEL.fallback_presets on failure.
         try:
-            result = collector.collect(topic)
+            result = run_with_model_fallback(
+                settings=settings,
+                root_dir=ROOT_DIR,
+                logger=logger,
+                topic=topic,
+            )
         except Exception as exc:  # pragma: no cover - CLI guard
             logger.exception("Daily news collection failed for %r: %s", topic, exc)
             failures += 1

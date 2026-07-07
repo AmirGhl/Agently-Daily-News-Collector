@@ -361,6 +361,7 @@ class ModelConfig:
     request_options: dict[str, Any] = field(default_factory=dict)
     proxy: str | None = None
     preset: str | None = None
+    fallback_presets: tuple[str, ...] = ()
 
     @classmethod
     def from_raw(cls, raw: dict[str, Any]) -> "ModelConfig":
@@ -386,6 +387,18 @@ class ModelConfig:
             if auth is None:
                 auth = {"api_key": f"${{ENV.{preset['api_key_env']}}}"}
 
+        primary_preset = preset_name.lower() if preset_name else None
+        fallback_names: list[str] = []
+        for name in _as_str_tuple(block.get("fallback_presets")):
+            normalized_name = name.lower()
+            if normalized_name not in MODEL_PRESETS:
+                raise ValueError(
+                    f"Unknown MODEL.fallback_presets entry {name!r}. "
+                    f"Available presets: {', '.join(sorted(MODEL_PRESETS))}"
+                )
+            if normalized_name != primary_preset and normalized_name not in fallback_names:
+                fallback_names.append(normalized_name)
+
         return cls(
             provider=_as_literal(
                 block.get("provider") or raw.get("MODEL_PROVIDER"),
@@ -402,8 +415,16 @@ class ModelConfig:
             auth=_normalize_auth(auth),
             request_options=request_options,
             proxy=_as_optional_str(block.get("proxy")),
-            preset=preset_name.lower() if preset_name else None,
+            preset=primary_preset,
+            fallback_presets=tuple(fallback_names),
         )
+
+    @classmethod
+    def for_preset(cls, name: str, *, proxy: str | None = None) -> "ModelConfig":
+        """A fresh config wired to a preset's defaults (used for fallback runs)."""
+        config = cls.from_raw({"MODEL": {"preset": name}})
+        config.proxy = proxy
+        return config
 
     def to_agently_settings(self, global_proxy: str | None = None) -> dict[str, Any]:
         settings: dict[str, Any] = {
@@ -533,6 +554,10 @@ class OutputConfig:
     formats: tuple[OutputFormat, ...] = ("markdown",)
     update_index: bool = True
     update_dashboard: bool = True
+    # Absolute base URL for links in the generated RSS feed (outputs/feed.xml),
+    # e.g. the GitHub Pages address. Falls back to the SITE_URL env var; when
+    # empty, feed links stay relative.
+    site_url: str = ""
 
     @classmethod
     def from_raw(cls, raw: dict[str, Any]) -> "OutputConfig":
@@ -542,6 +567,7 @@ class OutputConfig:
             formats=cls._normalize_formats(block.get("formats")),
             update_index=_as_bool(block.get("update_index"), True),
             update_dashboard=_as_bool(block.get("update_dashboard"), True),
+            site_url=str(block.get("site_url") or os.getenv("SITE_URL") or "").rstrip("/"),
         )
 
     @staticmethod
@@ -675,6 +701,9 @@ class HistoryConfig:
     enabled: bool = True
     retention_days: int = 30
     path: str = "outputs/.history.json"
+    # When False, previously-published stories are kept in the report but
+    # flagged is_new=False instead of being dropped (--allow-repeats).
+    filter_repeats: bool = True
 
     @classmethod
     def from_raw(cls, raw: dict[str, Any]) -> "HistoryConfig":
@@ -683,6 +712,7 @@ class HistoryConfig:
             enabled=_as_bool(block.get("enabled"), True),
             retention_days=max(_as_int(block.get("retention_days"), 30), 1),
             path=str(block.get("path") or "outputs/.history.json"),
+            filter_repeats=_as_bool(block.get("filter_repeats"), True),
         )
 
 

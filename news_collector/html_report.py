@@ -23,6 +23,7 @@ _UI_LABELS = {
         "stories": "مطلب",
         "sections": "بخش",
         "end": "پایان گزارش",
+        "new": "تازه",
         "copy": "کپی",
         "copied": "کپی شد ✓",
         "theme": "جوهر / کاغذ",
@@ -36,6 +37,7 @@ _UI_LABELS = {
         "stories": "stories",
         "sections": "sections",
         "end": "End of briefing",
+        "new": "new",
         "copy": "Copy",
         "copied": "Copied ✓",
         "theme": "Ink / Paper",
@@ -167,6 +169,7 @@ h1{
 html[dir="rtl"] .story .meta{justify-content:flex-end}
 .story .meta .k{letter-spacing:.08em;font-weight:600}
 .k.k-repo{color:var(--accent)} .k.k-rel,.k.k-ph{color:var(--ok)} .k.k-sec{color:var(--bad)}
+.k.k-new{color:var(--ok);font-weight:800}
 .k.k-hn,.k.k-com{color:var(--warn)} .k.k-web{color:var(--faint)}
 .story .meta .src{color:var(--faint)}
 .story h3{font-family:var(--serif);font-size:17.5px;font-weight:600;line-height:1.8;margin-top:7px;unicode-bidi:plaintext}
@@ -397,6 +400,16 @@ def render_html(
     tldr_clean = [strip_greeting(str(item).strip()) for item in (tldr or []) if str(item or "").strip()]
     story_count = sum(len(column.get("news_list") or []) for column in columns)
     minutes = _reading_minutes(columns, tldr_clean)
+    all_news = [
+        news
+        for column in columns
+        for news in (column.get("news_list") or [])
+        if isinstance(news, dict)
+    ]
+    new_count = sum(1 for news in all_news if news.get("is_new"))
+    # The NEW badge only matters when repeats are in the mix (--allow-repeats);
+    # when history filtering is on, every story is new and badges are noise.
+    has_repeats = any(news.get("is_new") is False for news in all_news)
 
     parts = [
         "<!doctype html>",
@@ -423,7 +436,9 @@ def render_html(
         '<header class="masthead">',
         '<div class="kicker">',
         f"<span>{esc(generated_at[:10])}</span>",
-        f"<span>{len(columns)} {esc(ui['sections']).upper() if direction == 'ltr' else esc(ui['sections'])} · {story_count} {esc(ui['stories'])}</span>",
+        f"<span>{len(columns)} {esc(ui['sections']).upper() if direction == 'ltr' else esc(ui['sections'])} · {story_count} {esc(ui['stories'])}"
+        + (f" · ✦ {new_count} {esc(ui['new'])}" if has_repeats and new_count else "")
+        + "</span>",
         f"<span>~{minutes} {esc(ui['min_read'])}</span>",
         f'<b dir="auto">{esc(topic)}</b>',
         "</div>",
@@ -471,6 +486,8 @@ def render_html(
             parts.append('<div class="story reveal">')
 
             meta_bits = ['<div class="meta">']
+            if has_repeats and news.get("is_new"):
+                meta_bits.append(f'<span class="k k-new">✦ {esc(ui["new"]).upper()}</span>')
             badge = _badge_for(news)
             if badge:
                 meta_bits.append(f'<span class="k {badge[1]}">{badge[0]}</span>')

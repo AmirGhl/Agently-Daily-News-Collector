@@ -209,14 +209,16 @@ class WebUIServer:
             if isinstance(max_news, int) and max_news > 0:
                 settings.workflow.max_news_per_column = max_news
             if params.get("allow_repeats"):
-                settings.history.enabled = False
+                settings.history.filter_repeats = False
 
-            collector = DailyNewsCollector(
+            from .collector import run_with_model_fallback
+
+            result = run_with_model_fallback(
                 settings=settings,
                 root_dir=self.root_dir,
                 logger=self.logger,
+                topic=topic,
             )
-            result = collector.collect(topic)
             if not (result.get("columns") or []):
                 self.logger.error(
                     "[Empty Report] no columns were produced (model calls failed?) — "

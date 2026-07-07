@@ -41,6 +41,12 @@ MODEL:
     temperature: 0.2
     extra_body:
       think: false
+  # Presets to try in order when the primary model fails (outage, rate
+  # limit, missing key). Each needs its own API key in .env; presets whose
+  # key is missing are skipped automatically.
+  # fallback_presets:
+  #   - groq
+  #   - openrouter
 
 SEARCH:
   max_results: 10
@@ -101,7 +107,12 @@ OUTPUT:
   # Maintain outputs/INDEX.md with a link to every generated report.
   update_index: true
   # Maintain outputs/index.html, a browsable dashboard of all reports.
+  # Also writes outputs/feed.xml, an RSS feed of the same catalog.
   update_dashboard: true
+  # Absolute base URL used for links in outputs/feed.xml, e.g. your GitHub
+  # Pages address. Falls back to the SITE_URL environment variable; when
+  # empty, feed links stay relative.
+  site_url: ""
 
 SUMMARY:
   # Generate a "Key Takeaways" executive summary at the top of each report.
@@ -183,10 +194,13 @@ DEV_PULSE:
 
 HISTORY:
   # Remember published story URLs so consecutive runs skip stories that
-  # already appeared in earlier reports. Disable per run with --allow-repeats.
+  # already appeared in earlier reports. With --allow-repeats (or
+  # filter_repeats: false) repeated stories are kept in the report but
+  # flagged, so fresh ones get a NEW badge.
   enabled: true
   retention_days: 30
   path: outputs/.history.json
+  filter_repeats: true
 
 DELIVERY:
   telegram:

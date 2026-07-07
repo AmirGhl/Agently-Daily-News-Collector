@@ -301,6 +301,7 @@ def _write_outputs(
                     for output_format, path in output_paths.items()
                 },
             },
+            site_url=config.settings.output.site_url,
         )
     return output_paths
 

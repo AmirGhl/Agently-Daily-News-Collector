@@ -168,12 +168,21 @@ def render_dashboard(catalog: list[dict[str, Any]]) -> str:
     return "\n".join(parts) + "\n"
 
 
-def update_dashboard(output_dir: str | Path, entry: dict[str, Any]) -> Path:
+def update_dashboard(
+    output_dir: str | Path,
+    entry: dict[str, Any],
+    *,
+    site_url: str = "",
+) -> Path:
     resolved_dir = Path(output_dir)
     resolved_dir.mkdir(parents=True, exist_ok=True)
     catalog = append_to_catalog(resolved_dir, entry)
     dashboard_path = resolved_dir / "index.html"
     dashboard_path.write_text(render_dashboard(catalog), encoding="utf-8")
+
+    from .feed import write_feed
+
+    write_feed(resolved_dir, catalog, site_url=site_url)
     return dashboard_path
 
 

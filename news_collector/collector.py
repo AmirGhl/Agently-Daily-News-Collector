@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import logging
 import os
 import re
@@ -11,7 +12,7 @@ from agently import Agently
 from tools import create_browse_tool, create_dev_sources_tool, create_rss_tool, create_search_tool
 from workflow import build_daily_news_flow
 
-from .config import AppSettings
+from .config import AppSettings, ModelConfig
 
 
 class DailyNewsCollector:
@@ -134,3 +135,50 @@ class DailyNewsCollector:
             return os.getenv(env_name, match.group(0))
 
         return re.sub(r"\$\{\s*ENV\.([^}]+?)\s*\}", replacer, value)
+
+
+def run_with_model_fallback(
+    *,
+    settings: AppSettings,
+    root_dir: str | Path,
+    logger: logging.Logger,
+    topic: str,
+) -> dict[str, Any]:
+    """Collect with the primary model, then each MODEL.fallback_presets entry.
+
+    A fallback preset with a missing API key is skipped (its constructor
+    raises before any network call). If every attempt fails, the primary
+    model's error is re-raised - it is the one the user cares about.
+    """
+    attempts: list[str | None] = [None, *settings.model.fallback_presets]
+    primary_exc: Exception | None = None
+    for index, preset in enumerate(attempts):
+        run_settings = settings
+        if preset is not None:
+            run_settings = copy.deepcopy(settings)
+            run_settings.model = ModelConfig.for_preset(preset, proxy=settings.model.proxy)
+            logger.warning(
+                "[Model Fallback] trying preset %r (%d of %d fallbacks)",
+                preset,
+                index,
+                len(attempts) - 1,
+            )
+        try:
+            collector = DailyNewsCollector(
+                settings=run_settings,
+                root_dir=root_dir,
+                logger=logger,
+            )
+            result = collector.collect(topic)
+            if preset is not None:
+                logger.warning("[Model Fallback] preset %r produced the report", preset)
+            return result
+        except KeyboardInterrupt:
+            raise
+        except Exception as exc:
+            if primary_exc is None:
+                primary_exc = exc
+            if index < len(attempts) - 1:
+                logger.warning("[Model Failed] %s - trying next fallback", exc)
+    assert primary_exc is not None
+    raise primary_exc

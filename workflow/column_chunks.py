@@ -194,9 +194,12 @@ async def search_news(
         url = str(raw.get("url") or raw.get("href") or "").strip()
         if not title or not url or url in seen_urls:
             return False
-        if config.history is not None and config.history.is_seen(url):
-            logger.info("[Skip Already Published] %s", title)
-            return False
+        seen_before = False
+        if config.history is not None:
+            seen_before = config.history.is_seen(url)
+            if seen_before and config.settings.history.filter_repeats:
+                logger.info("[Skip Already Published] %s", title)
+                return False
         seen_urls.add(url)
         normalized: dict[str, Any] = {
             "id": len(normalized_results),
@@ -206,6 +209,8 @@ async def search_news(
             "source": str(raw.get("source") or "").strip(),
             "date": str(raw.get("date") or "").strip(),
         }
+        if config.history is not None:
+            normalized["is_new"] = not seen_before
         # Structured channels can label items (release/advisory) and ship the
         # full content inline so the summarize stage can skip browsing.
         if raw.get("kind"):
