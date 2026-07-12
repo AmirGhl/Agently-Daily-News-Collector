@@ -506,6 +506,84 @@ async def _deliver_to_webhook(
         response.raise_for_status()
 
 
+async def deliver_alert(
+    settings: AppSettings,
+    alert_data: dict[str, Any],
+    channels: tuple[str, ...],
+) -> None:
+    """Deliver a breaking news alert via configured channels."""
+    proxy = settings.proxy or None
+    telegram = settings.delivery.telegram
+
+    # Compose alert message
+    story = alert_data.get("story", {})
+    match = alert_data.get("match", {})
+    topic = alert_data.get("topic", "")
+    report_title = alert_data.get("report_title", "Breaking News")
+
+    labels = _labels_for({"language": settings.workflow.output_language})
+    story_title = str(story.get("title") or "").strip()
+    story_url = str(story.get("url") or "").strip()
+    source = str(story.get("source") or "").strip()
+    date = str(story.get("date") or "").strip()[:10]
+    keywords = match.get("keywords", [])
+    cve_ids = match.get("cve_ids", [])
+    severity = match.get("severity", 1)
+
+    # Severity emoji
+    severity_emoji = {5: "🔴", 4: "🟠", 3: "🟡", 2: "🟢", 1: "🔵"}.get(severity, "📍")
+
+    # Build message
+    parts = [
+        f"{severity_emoji} <b>BREAKING ALERT</b>",
+        f"📌 <b>{escape(story_title)}</b>",
+    ]
+
+    if cve_ids:
+        parts.append(f"🛡 CVE: {', '.join(escape(c) for c in cve_ids)}")
+    if keywords:
+        parts.append(f"🔑 Keywords: {', '.join(escape(k) for k in keywords)}")
+    if source:
+        parts.append(f"📎 Source: {escape(source)}")
+    if date:
+        parts.append(f"📅 {escape(date)}")
+
+    if story_url:
+        parts.append(f"🔗 <a href=\"{escape(story_url, quote=True)}\">{labels['read_more']}</a>")
+
+    message = "\n".join(parts)
+
+    # Deliver via Telegram
+    if "telegram" in channels and telegram.enabled and telegram.bot_token and telegram.chat_id:
+        try:
+            async with httpx.AsyncClient(proxy=telegram.proxy or proxy, timeout=30.0) as client:
+                sender = _TelegramClient(client, f"{TELEGRAM_API_BASE}/bot{telegram.bot_token}", str(telegram.chat_id))
+                await sender.send_message(message)
+        except Exception as exc:
+            logging.getLogger(__name__).warning("[Alert Telegram Failed] %s", exc)
+
+    # Deliver via Webhook
+    if "webhook" in channels:
+        webhook = settings.delivery.webhook
+        if webhook.enabled and webhook.url:
+            try:
+                payload = {
+                    "alert": True,
+                    "report_title": report_title,
+                    "topic": topic,
+                    "story": story,
+                    "match": match,
+                    "message": message,
+                }
+                async with httpx.AsyncClient(proxy=proxy, timeout=30.0) as client:
+                    await client.post(webhook.url, json=payload)
+            except Exception as exc:
+                logging.getLogger(__name__).warning("[Alert Webhook Failed] %s", exc)
+
+    # Web Push would be handled client-side via Service Worker
+    # Server just needs to send push via Push API (not implemented here)
+
+
 __all__ = [
     "compose_delivery_message",
     "compose_header_message",
@@ -513,4 +591,5 @@ __all__ = [
     "compose_footer_message",
     "compose_telegram_messages",
     "deliver_report",
+    "deliver_alert",
 ]

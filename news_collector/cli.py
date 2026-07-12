@@ -5,6 +5,7 @@ import asyncio
 import shutil
 import sys
 from pathlib import Path
+from typing import Any
 
 from dotenv import find_dotenv, load_dotenv
 
@@ -12,6 +13,189 @@ from .config import OUTPUT_FORMAT_VALUES, AppSettings
 from .collector import DailyNewsCollector, run_with_model_fallback
 from .delivery import deliver_report
 from .logging_utils import configure_logging
+from .markdown import render_markdown
+from .html_report import render_html
+
+
+def merge_reports(reports: list[dict[str, Any]], topics: list[str]) -> dict[str, Any]:
+    """Merge multiple single-topic reports into one multi-topic report."""
+    if not reports:
+        return {}
+
+    # Use the first report as base
+    base = reports[0].copy()
+    
+    # Merge all columns with topic prefix
+    all_columns = []
+    all_tldr = []
+    
+    for i, report in enumerate(reports):
+        topic = topics[i] if i < len(topics) else f"Topic {i+1}"
+        report_tldr = report.get("tldr") or []
+        # Prefix TL;DR items with topic
+        for item in report_tldr:
+            all_tldr.append(f"[{topic}] {item}")
+        
+        # Add topic header to each column
+        columns = report.get("columns") or []
+        for column in columns:
+            if not isinstance(column, dict):
+                continue
+            col_title = column.get("title", "")
+            column = dict(column)
+            column["title"] = f"{topic} · {col_title}"
+            all_columns.append(column)
+
+    # Generate merged report
+    now = asyncio.get_event_loop().time() if False else __import__("datetime").datetime.now()
+    from datetime import datetime
+    now = datetime.now()
+    
+    merged_report = {
+        "report_title": base.get("report_title", "Multi-Topic Report"),
+        "generated_at": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "topic": ", ".join(topics),
+        "language": base.get("language", "English"),
+        "model": base.get("model", ""),
+        "tldr": all_tldr,
+        "columns": all_columns,
+    }
+    
+    return merged_report
+
+
+def run_multi_topic_merge(
+    topics: list[str],
+    settings: AppSettings,
+    root_dir: Path,
+    logger,
+    args: argparse.Namespace,
+) -> int:
+    """Run collection for multiple topics in parallel and merge results."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    
+    logger.info("[Multi-Topic] Running %d topics in parallel: %s", len(topics), topics)
+    
+    def collect_single(topic: str) -> tuple[str, dict[str, Any] | None, Exception | None]:
+        try:
+            result = run_with_model_fallback(
+                settings=settings,
+                root_dir=root_dir,
+                logger=logger,
+                topic=topic,
+            )
+            return topic, result, None
+        except Exception as exc:
+            logger.exception("Multi-topic collection failed for %r: %s", topic, exc)
+            return topic, None, exc
+    
+    results: list[dict[str, Any]] = []
+    successful_topics: list[str] = []
+    
+    with ThreadPoolExecutor(max_workers=min(len(topics), 4)) as executor:
+        futures = {executor.submit(collect_single, t): t for t in topics}
+        for future in as_completed(futures):
+            topic, result, exc = future.result()
+            if exc or result is None:
+                logger.error("[Multi-Topic] Topic %r failed", topic)
+                continue
+            results.append(result)
+            successful_topics.append(topic)
+    
+    if not results:
+        logger.error("[Multi-Topic] All topics failed")
+        return 1
+    
+    # Merge reports
+    merged = merge_reports(results, successful_topics)
+    
+    # Render outputs
+    from datetime import datetime
+    now = datetime.now()
+    report_date = now.strftime("%Y-%m-%d")
+    
+    markdown = render_markdown(
+        report_title=merged["report_title"],
+        generated_at=merged["generated_at"],
+        topic=merged["topic"],
+        language=merged["language"],
+        columns=merged["columns"],
+        model_label=results[0].get("model", ""),
+        tldr=merged["tldr"],
+    )
+    
+    # Save merged report
+    output_dir = root_dir / settings.output.directory
+    output_dir.mkdir(parents=True, exist_ok=True)
+    safe_title = "".join(c if c.isalnum() or c in "-_ " else "_" for c in merged["report_title"]).strip()
+    base_name = f"{safe_title}_{report_date}_multi"
+    
+    markdown_path = output_dir / f"{base_name}.md"
+    markdown_path.write_text(markdown, encoding="utf-8")
+    
+    # Save JSON
+    import json
+    json_path = output_dir / f"{base_name}.json"
+    json_data = {
+        "report_title": merged["report_title"],
+        "generated_at": merged["generated_at"],
+        "topic": merged["topic"],
+        "language": merged["language"],
+        "model": merged["model"],
+        "tldr": merged["tldr"],
+        "columns": merged["columns"],
+    }
+    json_path.write_text(json.dumps(json_data, ensure_ascii=False, indent=2), encoding="utf-8")
+    
+    # Render HTML
+    html = render_html(
+        report_title=merged["report_title"],
+        generated_at=merged["generated_at"],
+        topic=merged["topic"],
+        language=merged["language"],
+        columns=merged["columns"],
+        model_label=results[0].get("model", ""),
+        tldr=merged["tldr"],
+    )
+    html_path = output_dir / f"{base_name}.html"
+    html_path.write_text(html, encoding="utf-8")
+    
+    # Update dashboard
+    from .dashboard import update_dashboard
+    update_dashboard(
+        output_dir=output_dir,
+        entry={
+            "report_title": merged["report_title"],
+            "topic": merged["topic"],
+            "language": merged["language"],
+            "date": report_date,
+            "generated_at": merged["generated_at"],
+            "files": {
+                "markdown": markdown_path.name,
+                "json": json_path.name,
+                "html": html_path.name,
+            },
+        },
+        site_url=settings.output.site_url,
+    )
+    
+    # Delivery
+    if settings.delivery.telegram.enabled or settings.delivery.webhook.enabled:
+        merged["output_paths"] = {"markdown": str(markdown_path), "json": str(json_path), "html": str(html_path)}
+        try:
+            delivered = asyncio.run(deliver_report(settings, merged, logger))
+            for dest in delivered:
+                logger.info("[Delivered] %s", dest)
+        except Exception as exc:
+            logger.warning("[Multi-Topic Delivery Failed] %s", exc)
+    
+    if not args.quiet:
+        print(merged.get("markdown", markdown))
+    
+    for path in [markdown_path, json_path, html_path]:
+        print(f"[Saved {path.suffix[1:].upper()}] {path}")
+    
+    return 0
 
 
 def _resolve_root_dir() -> Path:
@@ -95,6 +279,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--all",
         action="store_true",
         help="run every topic listed under TOPICS in the settings file",
+    )
+    parser.add_argument(
+        "--topics",
+        type=str,
+        help="comma-separated list of topics to run in parallel and merge into one report",
     )
     parser.add_argument(
         "--dev",
@@ -278,6 +467,14 @@ def main() -> int:
             print("Topic is required.")
             return 1
         topics = [topic]
+
+    # Handle multi-topic merge mode
+    if args.topics:
+        topics = [t.strip() for t in args.topics.split(",") if t.strip()]
+        if not topics:
+            print("No valid topics provided in --topics.")
+            return 1
+        return run_multi_topic_merge(topics, settings, ROOT_DIR, logger, args)
 
     failures = 0
     for topic in topics:

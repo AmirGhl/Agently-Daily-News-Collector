@@ -317,36 +317,89 @@ def _as_literal(
 # One-word presets for popular OpenAI-compatible providers. A preset fills
 # base_url, the auth env-var, and a sensible default model; any MODEL.* key
 # set explicitly still wins.
-MODEL_PRESETS: dict[str, dict[str, str]] = {
+MODEL_PRESETS: dict[str, dict[str, str | list[str]]] = {
     "openai": {
         "base_url": "https://api.openai.com/v1",
         "api_key_env": "OPENAI_API_KEY",
         "default_model": "gpt-4.1-mini",
+        "available_models": [
+            "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano",
+            "gpt-4o", "gpt-4o-mini",
+            "o3", "o4-mini",
+            "gpt-4.5-preview",
+        ],
     },
     "openrouter": {
         "base_url": "https://openrouter.ai/api/v1",
         "api_key_env": "OPENROUTER_API_KEY",
         "default_model": "meta-llama/llama-3.3-70b-instruct",
+        "available_models": [
+            "meta-llama/llama-4-scout",
+            "meta-llama/llama-3.3-70b-instruct",
+            "deepseek/deepseek-r1",
+            "deepseek/deepseek-chat-v3-0324",
+            "anthropic/claude-sonnet-4-20250514",
+            "anthropic/claude-3.5-sonnet",
+            "google/gemini-2.5-pro-preview-03-25",
+            "mistralai/mistral-7b-instruct",
+            "qwen/qwen2.5-vl-72b-instruct",
+        ],
     },
     "groq": {
         "base_url": "https://api.groq.com/openai/v1",
         "api_key_env": "GROQ_API_KEY",
         "default_model": "llama-3.3-70b-versatile",
+        "available_models": [
+            "llama-3.3-70b-versatile",
+            "llama-4-scout-17b-16e-instruct",
+            "llama-4-maverick-17b-128e-instruct",
+            "mixtral-8x7b-32768",
+            "gemma2-9b-it",
+            "deepseek-r1-distill-llama-70b",
+        ],
     },
     "deepseek": {
         "base_url": "https://api.deepseek.com/v1",
         "api_key_env": "DEEPSEEK_API_KEY",
         "default_model": "deepseek-chat",
+        "available_models": [
+            "deepseek-chat",
+            "deepseek-reasoner",
+        ],
     },
     "together": {
         "base_url": "https://api.together.xyz/v1",
         "api_key_env": "TOGETHER_API_KEY",
         "default_model": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        "available_models": [
+            "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+            "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+            "deepseek-ai/DeepSeek-R1",
+            "Qwen/Qwen2.5-72B-Instruct-Turbo",
+            "mistralai/Mixtral-8x22B-Instruct-v0.1",
+            "google/gemma-2-27b-it",
+        ],
     },
     "ollama": {
         "base_url": "http://localhost:11434/v1",
         "api_key_env": "OLLAMA_API_KEY",
         "default_model": "qwen2.5:7b",
+        "available_models": [
+            "qwen2.5:7b",
+            "qwen2.5:14b",
+            "qwen2.5:32b",
+            "llama3.1:8b",
+            "llama3.1:70b",
+            "deepseek-r1:7b",
+            "deepseek-r1:14b",
+            "deepseek-r1:32b",
+            "mistral:7b",
+            "mixtral:8x7b",
+            "codellama:7b",
+            "codellama:13b",
+            "gemma2:9b",
+            "phi4:14b",
+        ],
     },
 }
 
@@ -594,20 +647,33 @@ DEFAULT_WATCH_REPOS: tuple[str, ...] = (
     "microsoft/vscode",
     "python/cpython",
     "nodejs/node",
+    "getcursor/cursor",
     "anthropics/claude-code",
     "ggml-org/llama.cpp",
     "huggingface/transformers",
     "openai/codex",
     "google-gemini/gemini-cli",
     "langchain-ai/langchain",
+    "langgenius/dify",
+    "n8n-io/n8n",
     "vllm-project/vllm",
     "microsoft/TypeScript",
     "golang/go",
     "rust-lang/rust",
     "facebook/react",
+    "facebook/react-native",
+    "vercel/next.js",
     "vitejs/vite",
     "denoland/deno",
+    "astral-sh/ruff",
+    "astral-sh/uv",
     "comfyanonymous/ComfyUI",
+    "anthropics/anthropic-cookbook",
+    "microsoft/autogen",
+    "crewAIInc/crewAI",
+    "hashicorp/terraform",
+    "neovim/neovim",
+    "zed-industries/zed",
 )
 DEFAULT_SUBREDDITS: tuple[str, ...] = (
     "programming",
@@ -615,16 +681,28 @@ DEFAULT_SUBREDDITS: tuple[str, ...] = (
     "LocalLLaMA",
     "MachineLearning",
     "artificial",
+    "artificialintelligence",
     "selfhosted",
     "netsec",
     "devops",
     "ExperiencedDevs",
+    "rust",
+    "golang",
+    "reactjs",
+    "typescript",
+    "cscareerquestions",
+    "opensource",
+    "sysadmin",
+    "sideproject",
 )
 DEFAULT_EXTRA_FEEDS: tuple[str, ...] = (
     "https://simonwillison.net/atom/everything/",
     "https://github.blog/feed/",
     "https://stackoverflow.blog/feed/",
     "https://newsletter.pragmaticengineer.com/feed",
+    "https://blog.rust-lang.org/feed.xml",
+    "https://deno.com/feed.xml",
+    "https://go.dev/blog/feed.atom",
 )
 SECURITY_SEVERITY_ORDER = ("low", "medium", "high", "critical")
 
@@ -645,6 +723,7 @@ class DevPulseConfig:
     security_ecosystems: tuple[str, ...] = ("pip", "npm", "go", "rust", "maven")
     security_min_severity: str = "high"
     stack: tuple[str, ...] = ()
+    enabled_sections: tuple[str, ...] = ()
 
     @classmethod
     def from_raw(cls, raw: dict[str, Any]) -> "DevPulseConfig":
@@ -668,6 +747,10 @@ class DevPulseConfig:
         severity = str(block.get("security_min_severity") or "high").strip().lower()
         if severity not in SECURITY_SEVERITY_ORDER:
             severity = "high"
+        from .dev_pulse import DEV_PULSE_SECTIONS
+        enabled = _as_str_tuple(block.get("enabled_sections"))
+        if not enabled:
+            enabled = tuple(DEV_PULSE_SECTIONS.keys())
         return cls(
             reddit_subreddits=subreddits or DEFAULT_SUBREDDITS,
             min_hn_points=max(_as_int(block.get("min_hn_points"), 80), 0),
@@ -683,6 +766,7 @@ class DevPulseConfig:
             security_ecosystems=ecosystems,
             security_min_severity=severity,
             stack=_as_str_tuple(block.get("stack")),
+            enabled_sections=enabled,
         )
 
 

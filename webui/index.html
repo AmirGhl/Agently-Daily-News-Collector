@@ -9,7 +9,8 @@
 <meta name="theme-color" content="#141312">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;800&family=Noto+Naskh+Arabic:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/Vazirmatn-Variable.woff2">
 <style>
 /* ————————————————————————————————————————————————
    سردبیر — جوهر و کاغذ
@@ -34,6 +35,22 @@
   --ok:#1e7d52; --warn:#8a6d1f; --bad:#b03246;
   --grain:.05;
 }
+/* ─── Vazirmatn variable font (self-hosted) ─── */
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("/fonts/Vazirmatn-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("/fonts/Vazirmatn-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+  font-style: italic;
+}
+
 *{margin:0;padding:0;box-sizing:border-box}
 html{scrollbar-color:var(--linehi) transparent;scroll-behavior:smooth}
 body{
@@ -505,15 +522,16 @@ header{
       <div class="sgrid">
         <div class="sfield">
           <label>سرویس‌دهنده</label>
-          <select id="setPreset"></select>
+          <select id="setPreset" title="انتخاب سرویس‌دهنده: OpenAI (پیش‌فرض)، Groq (خیلی سریع)، DeepSeek (اقتصادی)، یا اتصال به مدل محلی Ollama"></select>
         </div>
         <div class="sfield">
-          <label>مدل <span class="hint">(خالی = پیش‌فرض)</span></label>
-          <input class="ltr" id="setModel" placeholder="model-id" autocomplete="off">
+          <label>مدل <span class="hint">(از لیست یا دستی)</span></label>
+          <select class="ltr" id="setModelSelect" style="margin-bottom:4px" title="مدل‌های پیشنهادی برای سرویس‌دهنده فعلی — انتخاب کنید یا دستی بنویسید"></select>
+          <input class="ltr" id="setModel" placeholder="model-id (دستی)" autocomplete="off" style="font-size:11px;min-height:28px;padding:4px 8px" title="اسم دقیق مدل رو دستی وارد کن — مثلاً gpt-4o یا deepseek-chat">
         </div>
         <div class="sfield" id="baseUrlField" style="display:none">
-          <label>Base URL</label>
-          <input class="ltr" id="setBaseUrl" placeholder="https://api.example.com/v1" autocomplete="off">
+          <label>Base URL <span class="hint">(آدرس سرور — فقط برای Custom)</span></label>
+          <input class="ltr" id="setBaseUrl" placeholder="https://api.example.com/v1" autocomplete="off" title="آدرس سرور API — مثلاً http://localhost:11434/v1 برای Ollama محلی">
         </div>
         <div class="sfield" id="keyField">
           <label>API Key</label>
@@ -534,8 +552,8 @@ header{
       <h3 class="mh">گزارش</h3>
       <div class="sgrid">
         <div class="sfield">
-          <label>زبان گزارش</label>
-          <select id="setLang">
+          <label>زبان گزارش <span class="hint">(متن خروجی)</span></label>
+          <select id="setLang" title="گزارش نهایی به این زبان نوشته می‌شود — سردبیر هوش مصنوعی به این زبان خبر می‌نویسد">
             <option value="Persian">فارسی</option>
             <option value="English">English</option>
             <option value="Chinese">中文</option>
@@ -543,72 +561,84 @@ header{
           </select>
         </div>
         <div class="sfield">
-          <label>لحن</label>
-          <select id="setTone">
-            <option value="editorial">سردبیری</option>
-            <option value="conversational">محاوره‌ای</option>
+          <label>لحن <span class="hint">(سبک نگارش)</span></label>
+          <select id="setTone" title="سردبیری = رسمی و تحلیلی؛ محاوره‌ای = خودمانی و روان">
+            <option value="editorial">سردبیری (رسمی)</option>
+            <option value="conversational">محاوره‌ای (خودمانی)</option>
           </select>
         </div>
         <div class="sfield">
-          <label>حداکثر ستون</label>
-          <select id="setMaxCols"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select>
+          <label>حداکثر ستون <span class="hint">(تعداد بخش‌ها)</span></label>
+          <select id="setMaxCols" title="تعداد ستون‌های (بخش‌های) گزارش — مثلاً ۳ = سه تا خبر اصلی"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select>
         </div>
         <div class="sfield">
-          <label>خبر در هر ستون</label>
-          <select id="setMaxNews"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select>
+          <label>خبر در هر ستون <span class="hint">(تعداد آیتم)</span></label>
+          <select id="setMaxNews" title="حداکثر تعداد خبر در هر بخش — بیشتر = گزارش بلندتر"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select>
         </div>
       </div>
       <div class="sfield" style="margin-top:14px">
-        <label>موضوع‌های میان‌بر <span class="hint">(هر خط یک موضوع — کنار دکمه‌های صفحهٔ اصلی)</span></label>
+        <label>موضوع‌های میان‌بر <span class="hint">(هر خط یک موضوع — دکمه‌های صفحهٔ اصلی)</span>
+          <span style="display:block;font-size:10px;color:var(--dim);opacity:.7;margin-top:2px">با <code>--all</code> یکی‌یکی براشون گزارش ساخته می‌شه. اگه خالی باشه، فقط موضوع دلخواه توی صفحه اصلی کار می‌کنه.</span>
+        </label>
         <textarea id="setTopics" rows="3" placeholder="ایجنت‌های هوش مصنوعی&#10;امنیت سایبری"></textarea>
       </div>
 
       <h3 class="mh">نبض برنامه‌نویسی</h3>
+      <div class="sfield" style="margin-bottom:10px">
+        <label>بخش‌های فعال <span class="hint">(کدوم منابع چرخانده بشن)</span>
+          <span style="display:block;font-size:10px;color:var(--dim);opacity:.7;margin-top:2px">هر بخش رو فعال کن — اونایی که تیک نداری از گزارش حذف می‌شن. هر بخش توضیح خودش رو زیر اسمش داره.</span>
+        </label>
+        <div id="dpSections" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
+      </div>
       <div class="sgrid">
         <div class="sfield">
-          <label>ساب‌ردیت‌ها <span class="hint">(با کاما)</span></label>
-          <input class="ltr" id="dpSubs" placeholder="programming, webdev" autocomplete="off">
+          <label>ساب‌ردیت‌ها <span class="hint">(با کاما جدا کن)</span></label>
+          <input class="ltr" id="dpSubs" placeholder="programming, webdev" autocomplete="off" title="ردیت‌هایی که می‌خوای توی بخش Community Buzz باشه — مثلاً programming, rust, reactjs">
         </div>
         <div class="sfield">
           <label>زبان گیت‌هاب <span class="hint">(خالی = همه)</span></label>
-          <input class="ltr" id="dpLang" placeholder="python" autocomplete="off">
+          <input class="ltr" id="dpLang" placeholder="python" autocomplete="off" title="فیلتر زبان برای GitHub trending — مثلاً python, typescript, rust. خالی باشه همه زبان‌ها میاد.">
         </div>
       </div>
       <div class="sfield" style="margin-top:14px">
-        <label>ریپوهای زیر نظر <span class="hint">(هر خط owner/repo — ریلیزهای تازه‌شان خلاصه می‌شود؛ خالی = ستون ریلیز حذف)</span></label>
+        <label>ریپوهای زیر نظر <span class="hint">(هر خط owner/repo)</span>
+          <span style="display:block;font-size:10px;color:var(--dim);opacity:.7;margin-top:2px">لیست ریپوهایی که ریلیز جدیدشون برات مهمه — مثلاً <code>microsoft/vscode</code>. ریلیزها توی بخش Fresh Releases خلاصه می‌شن. اگه خالی باشه، اون بخش از گزارش حذف می‌شه.</span>
+        </label>
         <textarea class="ltr" id="dpRepos" rows="3" placeholder="ollama/ollama&#10;python/cpython"></textarea>
       </div>
       <div class="sfield" style="margin-top:14px">
-        <label>فیدهای RSS اضافه <span class="hint">(هر خط یک آدرس — پلِ X / وبلاگ‌ها به ستون Community Buzz)</span></label>
+        <label>فیدهای RSS اضافه <span class="hint">(هر خط یک آدرس)</span>
+          <span style="display:block;font-size:10px;color:var(--dim);opacity:.7;margin-top:2px">آدرس فید RSS برای وبلاگ‌ها، X/Twitter یا کانال‌های خبری — محتوا توی ستون Community Buzz میاد. از <code>rsshub.app</code> می‌تونی برای هر سایتی فید بسازی.</span>
+        </label>
         <textarea class="ltr" id="dpFeeds" rows="2" placeholder="https://rsshub.app/twitter/user/OpenAI"></textarea>
       </div>
 
       <h3 class="mh">تلگرام</h3>
       <div class="sgrid">
         <div class="sfield">
-          <label>توکن بات <span class="hint">(از @BotFather — در .env ذخیره می‌شود)</span></label>
-          <input class="ltr" id="tgToken" type="password" placeholder="123456:ABC-DEF..." autocomplete="off">
+          <label>توکن بات <span class="hint">(از @BotFather)</span></label>
+          <input class="ltr" id="tgToken" type="password" placeholder="123456:ABC-DEF..." autocomplete="off" title="توکن ربات تلگرام — از @BotFather بگیر. توی فایل .env ذخیره می‌شه.">
           <div class="keyenv" id="tgEnv"></div>
         </div>
         <div class="sfield">
-          <label>کانال / Chat ID <span class="hint">(مثل @my_channel یا عدد)</span></label>
-          <input class="ltr" id="tgChat" placeholder="@my_channel" autocomplete="off">
+          <label>کانال / Chat ID <span class="hint">(مثل @my_channel)</span></label>
+          <input class="ltr" id="tgChat" placeholder="@my_channel" autocomplete="off" title="آیدی کانال یا چت خصوصی — مثلاً @my_channel یا یه عدد مثل 123456789-">
         </div>
         <div class="sfield">
-          <label>پراکسی تلگرام <span class="hint">(اگر تلگرام فیلتر است — فقط برای ارسال)</span></label>
-          <input class="ltr" id="tgProxy" placeholder="socks5://127.0.0.1:10808" autocomplete="off">
+          <label>پراکسی تلگرام <span class="hint">(اختیاری)</span></label>
+          <input class="ltr" id="tgProxy" placeholder="socks5://127.0.0.1:10808" autocomplete="off" title="اگه تلگرام فیلتره، پراکسی بذار — فقط برای ارسال استفاده می‌شه">
         </div>
         <div class="sfield">
-          <label>سبک ارسال <span class="hint">(کانالی = هر خبر یک پست با عکس)</span></label>
-          <select id="tgStyle">
+          <label>سبک ارسال <span class="hint">(کانالی یا فشرده)</span></label>
+          <select id="tgStyle" title="کانالی = هر خبر یه پست جدا با عکس؛ فشرده = چند خبر توی یه پیام">
             <option value="channel">کانالی — پست‌به‌پست با عکس</option>
             <option value="digest">فشرده — چند خبر در یک پیام</option>
           </select>
         </div>
       </div>
       <div class="sactions" style="margin-top:12px;flex-wrap:wrap">
-        <label class="swlab"><input type="checkbox" id="tgEnabled"> ارسال خودکار بعد از هر گزارش</label>
-        <label class="swlab"><input type="checkbox" id="tgHtml"> پیوست فایل HTML</label>
+        <label class="swlab" title="بعد از تولید هر گزارش، به تلگرام ارسال کن"><input type="checkbox" id="tgEnabled"> ارسال خودکار بعد از هر گزارش</label>
+        <label class="swlab" title="فایل HTML کامل رو هم ضمیمه کن"><input type="checkbox" id="tgHtml"> پیوست فایل HTML</label>
       </div>
       <div class="sactions" style="margin-top:10px">
         <button class="btn btn-line" id="tgTestBtn" type="button">ارسال آزمایشی</button>
@@ -617,15 +647,15 @@ header{
 
       <h3 class="mh">اجرای خودکار</h3>
       <div class="sched-row">
-        <label class="swlab"><input type="checkbox" id="schEnabled"> فعال</label>
-        <input type="time" id="schTime" value="08:00" aria-label="ساعت اجرا">
-        <select id="schMode" aria-label="نوع اجرا">
+        <label class="swlab" title="فعال یا غیرفعال کردن زمان‌بندی"><input type="checkbox" id="schEnabled"> فعال</label>
+        <input type="time" id="schTime" value="08:00" aria-label="ساعت اجرا" title="ساعت اجرای خودکار — تا وقتی پنل بازه سر وقت اجرا می‌شه">
+        <select id="schMode" aria-label="نوع اجرا" title="نوع گزارش: نبض برنامه‌نویسی، موضوع ثابت، یا جمع‌بندی هفتگی">
           <option value="dev">نبض برنامه‌نویسی</option>
           <option value="topic">موضوع ثابت</option>
           <option value="weekly">جمع‌بندی هفتگی</option>
         </select>
-        <input type="text" id="schTopic" placeholder="موضوع…" style="display:none" aria-label="موضوع ثابت">
-        <select id="schDay" style="display:none" aria-label="روز هفته">
+        <input type="text" id="schTopic" placeholder="موضوع…" style="display:none" aria-label="موضوع ثابت" title="اگه حالت «موضوع ثابت» رو انتخاب کردی، اینجا موضوع رو بنویس">
+        <select id="schDay" style="display:none" aria-label="روز هفته" title="اگه حالت هفتگی رو انتخاب کردی، روز اجرا رو انتخاب کن">
           <option value="5">شنبه</option><option value="6">یکشنبه</option><option value="0">دوشنبه</option>
           <option value="1">سه‌شنبه</option><option value="2">چهارشنبه</option><option value="3">پنجشنبه</option>
           <option value="4">جمعه</option>
@@ -633,7 +663,7 @@ header{
       </div>
       <div class="hint" style="margin-top:8px">تا وقتی پنل باز است، سرِ ساعت اجرا می‌شود.</div>
       <label class="swlab" id="autostartWrap" style="display:none;margin-top:10px">
-        <input type="checkbox" id="autostartChk"> اجرا با روشن‌شدن ویندوز <span class="hint">(بی‌صدا، بدون بازکردن مرورگر — زمان‌بندی همیشه فعال می‌ماند)</span>
+        <input type="checkbox" id="autostartChk"> اجرا با روشن‌شدن ویندوز <span class="hint">(بی‌صدا، بدون بازکردن مرورگر)</span>
       </label>
 
     </div>
@@ -986,6 +1016,22 @@ function loadSettings() {
     $("#dpLang").value = dp.github_language || "";
     $("#dpRepos").value = (dp.watch_repos || []).join("\n");
     $("#dpFeeds").value = (dp.extra_feeds || []).join("\n");
+    /* section selectors for dev pulse */
+    const sectionsEl = $("#dpSections");
+    sectionsEl.innerHTML = "";
+    const enabledSections = dp.enabled_sections || [];
+    const secLabels = dp.section_labels || [];
+    for (const s of secLabels) {
+      const chk = document.createElement("label");
+      chk.style.cssText = "display:flex;flex-direction:column;gap:2px;font-size:11.5px;cursor:pointer;color:var(--dim);padding:5px 10px;border:1px solid var(--line);border-radius:6px;transition:color .15s,border-color .15s;max-width:200px";
+      chk.innerHTML = `<span style="display:flex;align-items:center;gap:4px"><input type="checkbox" value="${esc(s.id)}" ${enabledSections.includes(s.id)?"checked":""} style="accent-color:var(--accent)"> ${esc(s.title)}</span><span style="font-size:10px;color:var(--dim);opacity:.7;line-height:1.3">${esc(s.description||"")}</span>`;
+      chk.querySelector("input").onchange = () => {
+        chk.style.borderColor = chk.querySelector("input").checked ? "var(--accent)" : "var(--line)";
+        chk.style.color = chk.querySelector("input").checked ? "var(--ink)" : "var(--dim)";
+      };
+      if (enabledSections.includes(s.id)) { chk.style.borderColor = "var(--accent)"; chk.style.color = "var(--ink)"; }
+      sectionsEl.appendChild(chk);
+    }
     const dl = view.delivery || {};
     $("#tgEnabled").checked = !!dl.telegram_enabled;
     $("#tgChat").value = dl.chat_id || "";
@@ -1005,6 +1051,14 @@ function syncPresetUI() {
   const saved = settingsData?.current.key_env === keyEnv && settingsData?.current.key_present;
   $("#setModel").placeholder = meta?.default_model || "model-id";
   $("#keyEnv").innerHTML = keyEnv ? `→ .env : ${keyEnv}${saved ? " <b>— saved key found</b>" : ""}` : "";
+  /* populate model dropdown */
+  const sel = $("#setModelSelect");
+  const models = meta?.available_models || [];
+  const curModel = $("#setModel").value;
+  sel.innerHTML = '<option value="">— پیش‌فرض سرویس —</option>' +
+    models.map((m) => `<option value="${esc(m)}">${esc(m)}</option>`).join("");
+  if (models.includes(curModel)) sel.value = curModel;
+  sel.onchange = () => { if (sel.value) $("#setModel").value = sel.value; };
 }
 $("#setPreset").onchange = syncPresetUI;
 $("#eyeBtn").onclick = () => { const i = $("#setKey"); i.type = i.type === "password" ? "text" : "password"; };
@@ -1024,6 +1078,7 @@ const sPayload = () => ({
     watch_repos: asList($("#dpRepos").value, /[\n,]+/),
     extra_feeds: asList($("#dpFeeds").value, "\n"),
     github_language: $("#dpLang").value.trim(),
+    enabled_sections: [...$("#dpSections").querySelectorAll("input:checked")].map((c) => c.value),
   },
   delivery: {
     telegram_enabled: $("#tgEnabled").checked,

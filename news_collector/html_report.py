@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 import html
+import json
 import re
 from typing import Any
 
 from .markdown import _labels_for_language
-from .textutils import strip_greeting
+from .textutils import is_rtl_language, strip_greeting, wrap_mixed
+
+# Import the interactive template
+try:
+    from .interactive_report import INTERACTIVE_REPORT_TEMPLATE
+except ImportError:
+    INTERACTIVE_REPORT_TEMPLATE = ""
 
 _RTL_MARKERS = ("persian", "farsi", "arabic", "hebrew", "urdu")
 _RTL_PREFIXES = ("fa", "ar", "he", "ur")
@@ -30,6 +37,15 @@ _UI_LABELS = {
         "print": "چاپ / PDF",
         "why_pick": "چرا انتخاب شد",
         "top": "بازگشت به بالا",
+        "reader_mode": "حالت خواندن",
+        "reader_mode_title": "مطالعه آسان",
+        "close_reader": "بستن",
+        "share": "اشتراک‌گذاری",
+        "share_pending": "در حال ایجاد تصویر...",
+        "export": "خروجی",
+        "export_notion": "Notion",
+        "export_obsidian": "Obsidian",
+        "export_markdown": "Markdown",
     },
     "en": {
         "toc": "Sections",
@@ -44,10 +60,117 @@ _UI_LABELS = {
         "print": "Print / PDF",
         "why_pick": "Why it was picked",
         "top": "Back to top",
+        "reader_mode": "Reader Mode",
+        "reader_mode_title": "Distraction-free reading",
+        "close_reader": "Close",
+        "share": "Share",
+        "share_pending": "Generating image...",
+        "export": "Export",
+        "export_notion": "Notion",
+        "export_obsidian": "Obsidian",
+        "export_markdown": "Markdown",
     },
 }
 
 # «جوهر و کاغذ» — ink & paper editorial design, matching the panel's reader.
+
+# ─── Vazirmatn variable font (self-hosted) ───
+_FONT_FACE_CSS = """
+/* ─── Vazirmatn variable font (self-hosted) ─── */
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("/fonts/Vazirmatn-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("/fonts/Vazirmatn-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+  font-style: italic;
+}
+"""
+
+# SVG icons
+_SVG_THEME = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+    'stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/>'
+    '<path d="M12 3v18M12 3a9 9 0 0 1 0 18" fill="currentColor" stroke="none" opacity=".35"/></svg>'
+)
+_SVG_PRINT = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    '<path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>'
+    '<rect x="6" y="14" width="12" height="7"/></svg>'
+)
+_SVG_TOP = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    '<path d="M12 19V5M5 12l7-7 7 7"/></svg>'
+)
+_SVG_CLOSE = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+)
+_SVG_READER = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    '<path d="M4 4l16 16M4 20l16-16"/><path d="M2 12h7M15 12h7"/>'
+    '<path d="M9 8h1M9 16h1"/></svg>'
+)
+_SVG_READER_CLOSE = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4l16 16M4 20l16-16"/></svg>'
+)
+_SVG_SHARE = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    '<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>'
+)
+_SVG_EXPORT = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>'
+)
+
+_KIND_LABELS = {
+    "repo": ("REPO", "k-repo"),
+    "release": ("RELEASE", "k-rel"),
+    "advisory": ("SECURITY", "k-sec"),
+}
+
+# Full kind labels for filter UI
+_KIND_LABELS_FULL = {
+    "repo": "GitHub Repository",
+    "release": "GitHub Release",
+    "advisory": "Security Advisory",
+    "hn": "Hacker News",
+    "lobsters": "Lobsters",
+    "reddit": "Reddit",
+    "devto": "dev.to",
+    "daily_dev": "daily.dev",
+    "product_hunt": "Product Hunt",
+    "extra_feeds": "RSS Feeds",
+    "web": "Web",
+}
+
+_RTL_MARKERS = ("persian", "farsi", "arabic", "hebrew", "urdu")
+_RTL_PREFIXES = ("fa", "ar", "he", "ur")
+
+
+# Load Alpine.js and htmx from local static files
+_ALPINE_JS = ""
+_HTMX_JS = ""
+
+try:
+    from pathlib import Path
+    _STATIC_DIR = Path(__file__).parent / "static"
+    _ALPINE_JS = (_STATIC_DIR / "alpine.min.js").read_text(encoding="utf-8")
+    _HTMX_JS = (_STATIC_DIR / "htmx.min.js").read_text(encoding="utf-8")
+except Exception:
+    pass
 # Hairlines instead of boxes, serif headlines, paper-grain atmosphere,
 # two themes (ink dark / paper light), fully self-contained.
 _PAGE_STYLE = """
@@ -396,6 +519,7 @@ def render_html(
     ui = _ui_labels(language)
     direction = "rtl" if _is_rtl_language(language) else "ltr"
     esc = html.escape
+    wm = lambda t: wrap_mixed(t, language)
 
     tldr_clean = [strip_greeting(str(item).strip()) for item in (tldr or []) if str(item or "").strip()]
     story_count = sum(len(column.get("news_list") or []) for column in columns)
@@ -407,151 +531,96 @@ def render_html(
         if isinstance(news, dict)
     ]
     new_count = sum(1 for news in all_news if news.get("is_new"))
-    # The NEW badge only matters when repeats are in the mix (--allow-repeats);
-    # when history filtering is on, every story is new and badges are noise.
     has_repeats = any(news.get("is_new") is False for news in all_news)
 
-    parts = [
-        "<!doctype html>",
-        f'<html lang="{esc(language[:2].lower() or "en")}" dir="{direction}" data-theme="ink">',
-        "<head>",
-        '<meta charset="utf-8">',
-        '<meta name="viewport" content="width=device-width, initial-scale=1">',
-        f"<title>{esc(report_title)}</title>",
-        f'<meta name="description" content="{esc(" · ".join(tldr_clean[:2])[:280])}">',
-        # Progressive enhancement: falls back to Georgia/Tahoma offline.
-        '<link rel="preconnect" href="https://fonts.googleapis.com">',
-        '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
-        '<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;800&family=Noto+Naskh+Arabic:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">',
-        f"<style>{_PAGE_STYLE}</style>",
-        "</head>",
-        "<body>",
-        '<div id="readbar" aria-hidden="true"><i id="readfill"></i></div>',
-        '<div class="tools">',
-        f'<button id="topBtn" title="{esc(ui["top"])}" aria-label="{esc(ui["top"])}">{_SVG_TOP}</button>',
-        f'<button id="printBtn" title="{esc(ui["print"])}" aria-label="{esc(ui["print"])}">{_SVG_PRINT}</button>',
-        f'<button id="themeBtn" title="{esc(ui["theme"])}" aria-label="{esc(ui["theme"])}">{_SVG_THEME}</button>',
-        "</div>",
-        '<div class="wrap"><article class="paper">',
-        '<header class="masthead">',
-        '<div class="kicker">',
-        f"<span>{esc(generated_at[:10])}</span>",
-        f"<span>{len(columns)} {esc(ui['sections']).upper() if direction == 'ltr' else esc(ui['sections'])} · {story_count} {esc(ui['stories'])}"
-        + (f" · ✦ {new_count} {esc(ui['new'])}" if has_repeats and new_count else "")
-        + "</span>",
-        f"<span>~{minutes} {esc(ui['min_read'])}</span>",
-        f'<b dir="auto">{esc(topic)}</b>',
-        "</div>",
-        f'<h1 dir="auto">{esc(report_title)}</h1>',
-        f'<div class="byline">{esc(labels["model"])}: <span dir="ltr">{esc(model_label)}</span></div>',
-        '<hr class="rule dbl">',
-        "</header>",
-    ]
-
-    if tldr_clean:
-        parts.append('<aside class="tldr">')
-        parts.append(f"<h2>{esc(labels['tldr'])}</h2>")
-        parts.append("<ol>")
-        parts.extend(
-            f'<li><i>{index:02d}</i><span dir="auto">{esc(takeaway)}</span></li>'
-            for index, takeaway in enumerate(tldr_clean, 1)
-        )
-        parts.append("</ol>")
-        parts.append("</aside>")
-
-    if len(columns) > 1:
-        parts.append(f'<nav class="toc" aria-label="{esc(ui["toc"])}">')
-        for index, column in enumerate(columns):
-            title = str(column.get("title") or "")
-            parts.append(
-                f'<a href="#{_anchor(title, index)}"><i>{index + 1:02d}</i>'
-                f'<span dir="auto">{esc(title)}</span></a>'
-            )
-        parts.append("</nav>")
-
-    for index, column in enumerate(columns):
+    # Prepare data for the interactive template
+    # Build columns data for Alpine.js
+    columns_data = []
+    kind_labels = _KIND_LABELS
+    kind_labels_full = _KIND_LABELS_FULL
+    
+    for col_idx, column in enumerate(columns):
         column_title = str(column.get("title") or "")
         news_list = [news for news in (column.get("news_list") or []) if isinstance(news, dict)]
-        parts.append(
-            f'<div class="colhead reveal" id="{_anchor(column_title, index)}">'
-            f'<span class="n">{index + 1:02d}</span>'
-            f'<h2 dir="auto">{esc(column_title)}</h2>'
-            f'<span class="cnt">{len(news_list)}</span></div>'
-        )
-        prologue = strip_greeting(str(column.get("prologue") or "").strip())
-        if prologue:
-            parts.append(f'<p class="prologue reveal" dir="auto">{esc(prologue)}</p>')
-
+        
+        news_data = []
         for news in news_list:
-            parts.append('<div class="story reveal">')
+            # Determine kind
+            kind = str(news.get("kind") or "")
+            if not kind:
+                source = str(news.get("source") or "").lower()
+                url = str(news.get("url") or "").lower()
+                if "advisor" in source or "security" in source:
+                    kind = "advisory"
+                elif "release" in source:
+                    kind = "release"
+                elif "github" in source or re.search(r"github\.com/[^/]+/[^/]+/?$", url):
+                    kind = "repo"
+                elif "hacker" in source:
+                    kind = "hn"
+                elif "product hunt" in source:
+                    kind = "product_hunt"
+                elif any(marker in source for marker in ("reddit", "lobster", "dev.to", "daily.dev")):
+                    kind = "community"
+                elif source:
+                    kind = "web"
+                else:
+                    kind = "web"
+            
+            news_data.append({
+                "title": esc(str(news.get("title") or "")),
+                "url": esc(str(news.get("url") or ""), quote=True),
+                "source": esc(str(news.get("source") or "")),
+                "date": esc(str(news.get("date") or "")[:10]),
+                "kind": kind,
+                "is_new": bool(news.get("is_new")),
+                "image": esc(str(news.get("image") or ""), quote=True) if str(news.get("image") or "").startswith(("http://", "https://")) else "",
+                "summary": _paragraphs(strip_greeting(str(news.get("summary") or news.get("brief") or "").strip())),
+                "recommend_comment": esc(strip_greeting(str(news.get("recommend_comment") or "").strip())),
+            })
+        
+        prologue = strip_greeting(str(column.get("prologue") or "").strip())
+        columns_data.append({
+            "title": esc(column_title),
+            "prologue": esc(prologue),
+            "news_list": news_data,
+        })
 
-            meta_bits = ['<div class="meta">']
-            if has_repeats and news.get("is_new"):
-                meta_bits.append(f'<span class="k k-new">✦ {esc(ui["new"]).upper()}</span>')
-            badge = _badge_for(news)
-            if badge:
-                meta_bits.append(f'<span class="k {badge[1]}">{badge[0]}</span>')
-            source = str(news.get("source") or "").strip()
-            if source:
-                meta_bits.append(f'<span class="src">{esc(source)}</span>')
-            date = str(news.get("date") or "").strip()
-            if date:
-                meta_bits.append(f'<span class="src">{esc(date[:10])}</span>')
-            relevance = news.get("relevance_score")
-            if isinstance(relevance, (int, float)):
-                meta_bits.append(f'<span class="src">★ {int(relevance)}/10</span>')
-            meta_bits.append("</div>")
-            parts.append("".join(meta_bits))
+    # JSON data for Alpine.js
+    report_data = {
+        "report_title": esc(report_title),
+        "generated_at": esc(generated_at),
+        "topic": esc(topic),
+        "language": esc(language),
+        "model_label": esc(model_label),
+        "tldr": [esc(t) for t in tldr_clean],
+        "columns": columns_data,
+        "ui": ui,
+        "is_rtl": direction == "rtl",
+        "kind_labels": kind_labels,
+        "kind_labels_full": kind_labels_full,
+    }
 
-            title = esc(str(news.get("title") or ""))
-            url = esc(str(news.get("url") or ""), quote=True)
-            if url:
-                parts.append(f'<h3 dir="auto"><a href="{url}" target="_blank" rel="noreferrer">{title}</a></h3>')
-            else:
-                parts.append(f'<h3 dir="auto">{title}</h3>')
-
-            image = str(news.get("image") or "").strip()
-            if image.startswith(("http://", "https://")):
-                parts.append(
-                    f'<figure class="figure"><img src="{esc(image, quote=True)}" '
-                    f'alt="{title}" loading="lazy" decoding="async"></figure>'
-                )
-
-            summary = strip_greeting(str(news.get("summary") or news.get("brief") or "").strip())
-            if summary:
-                parts.append(f'<div class="body">{_paragraphs(summary)}</div>')
-
-            comment = strip_greeting(str(news.get("recommend_comment") or "").strip())
-            if comment:
-                parts.append(
-                    f'<aside class="why"><b>{esc(labels["comment"])}</b>'
-                    f'<p dir="auto">{esc(comment)}</p></aside>'
-                )
-
-            if url:
-                parts.append(
-                    '<div class="foot">'
-                    f'<a class="lnk" href="{url}" target="_blank" rel="noreferrer">{url} ↗</a>'
-                    f'<button type="button" class="cpy" data-t="{title}" data-u="{url}" '
-                    f'data-ok="{esc(ui["copied"])}">{esc(ui["copy"])}</button>'
-                    "</div>"
-                )
-            parts.append("</div>")
-
-    parts.extend(
-        [
-            f'<div class="endmark">— {esc(ui["end"])} —</div>',
-            "<footer>",
-            f'{esc(generated_at)} · <span>{esc(model_label)}</span> · '
-            'Powered by <a href="https://github.com/AgentEra/Agently">AGENTLY 4</a>',
-            "</footer>",
-            "</article></div>",
-            f"<script>{_PAGE_SCRIPT}</script>",
-            "</body>",
-            "</html>",
-        ]
+    # Use the interactive template
+    template = INTERACTIVE_REPORT_TEMPLATE.format(
+        language_code=language[:2].lower() or "en",
+        direction=direction,
+        theme="ink",
+        escaped_report_title=esc(report_title),
+        ui_labels_json=json.dumps(ui, ensure_ascii=False),
+        is_rtl=direction == "rtl",
+        kind_labels_json=json.dumps(kind_labels, ensure_ascii=False),
+        kind_labels_full_json=json.dumps(kind_labels_full, ensure_ascii=False),
+        report_title_json=json.dumps(report_title, ensure_ascii=False),
+        generated_at_json=json.dumps(esc(generated_at), ensure_ascii=False),
+        topic_json=json.dumps(esc(topic), ensure_ascii=False),
+        language_json=json.dumps(language, ensure_ascii=False),
+        model_label_json=json.dumps(esc(model_label), ensure_ascii=False),
+        tldr_json=json.dumps([esc(t) for t in tldr_clean], ensure_ascii=False),
+        columns_json=json.dumps(columns_data, ensure_ascii=False),
     )
-    return "\n".join(parts) + "\n"
+
+    return template
 
 
 __all__ = ["render_html"]

@@ -5,12 +5,17 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .dateutils import format_jalali, to_persian_numbers
+
+
 _DASHBOARD_STYLE = """
 :root{
-  --bg:#0e1015; --card:#151821; --border:#1f2430; --border-hi:#2c3242;
-  --text:#e6e8ee; --dim:#9299a8; --faint:#5c6373;
-  --accent:#6e7bff; --accent-2:#8b96ff; --lime:#8b96ff;
-  --glow:none;
+  --bg:#0a0b0f; --bg-2:#0d0f15; --card:#12141c; --card-2:#171a24;
+  --border:#232735; --border-hi:#323848;
+  --text:#e9ebf2; --dim:#8b91a3; --faint:#565d70;
+  --accent:#ff6a3d; --accent-2:#ffb35c; --lime:#d4ff4f;
+  --glow:0 0 28px rgba(255,106,61,.28);
+  --glow-soft:0 8px 34px -10px rgba(255,106,61,.35);
   --shadow:0 20px 50px -20px rgba(0,0,0,.7);
   --grad:linear-gradient(135deg,var(--accent),var(--accent-2));
   --spring:cubic-bezier(.22,1.2,.36,1);
@@ -18,19 +23,34 @@ _DASHBOARD_STYLE = """
 }
 @media (prefers-color-scheme: light){
   :root{
-    --bg:#f2f3f7; --card:#ffffff; --border:#dfe2ec; --border-hi:#c9cedd;
+    --bg:#f2f3f7; --bg-2:#eceef4; --card:#ffffff; --card-2:#f7f8fb;
+    --border:#dfe2ec; --border-hi:#c9cedd;
     --text:#171923; --dim:#5d6474; --faint:#9aa0b0;
-    --accent:#4f5ce8; --accent-2:#6e7bff; --lime:#4f5ce8;
-    --glow:none;
+    --accent:#e8501e; --accent-2:#f08c2e; --lime:#7fae00;
+    --ok:#0e9e6e; --danger:#e0324b;
+    --glow:0 0 24px rgba(232,80,30,.18);
+    --glow-soft:0 8px 30px -12px rgba(232,80,30,.3);
     --shadow:0 18px 44px -22px rgba(23,25,35,.3);
   }
 }
 *{box-sizing:border-box; margin:0}
 ::selection{background:var(--accent); color:#fff}
+html{scrollbar-color:var(--border-hi) transparent}
 body{
   margin:0 auto; padding:0 clamp(16px,4vw,44px) 80px; max-width:72rem;
   font-family:"Vazirmatn",-apple-system,"Segoe UI",Tahoma,sans-serif;
   line-height:1.7; color:var(--text); background:var(--bg);
+  background-image:
+    radial-gradient(1000px 520px at 82% -140px, rgba(255,106,61,.13), transparent 62%),
+    radial-gradient(800px 460px at 8% -80px, rgba(212,255,79,.05), transparent 60%),
+    radial-gradient(circle, rgba(255,255,255,.045) 1px, transparent 1.4px);
+  background-size:auto, auto, 26px 26px;
+}
+@media (prefers-color-scheme: light){
+  body{background-image:
+    radial-gradient(1000px 520px at 82% -140px, rgba(232,80,30,.09), transparent 62%),
+    radial-gradient(circle, rgba(23,25,35,.05) 1px, transparent 1.4px);
+    background-size:auto, 26px 26px;}
 }
 @keyframes rise{from{opacity:0; transform:translateY(14px)} to{opacity:1; transform:none}}
 @keyframes card-in{from{opacity:0; transform:translateY(12px) scale(.98)} to{opacity:1; transform:none}}
@@ -113,6 +133,26 @@ def append_to_catalog(output_dir: Path, entry: dict[str, Any]) -> list[dict[str,
     return catalog
 
 
+def _format_date_fa(date_str: str) -> str:
+    """Convert ISO date string (YYYY-MM-DD) to Persian date with Persian numbers."""
+    try:
+        from datetime import datetime
+        dt = datetime.strptime(date_str, "%Y-%m-%d").date()
+        return format_jalali(dt, include_weekday=True)
+    except (ValueError, TypeError):
+        return date_str
+
+
+def _format_date_fa_short(date_str: str) -> str:
+    """Convert ISO date string to short Persian date (DD/MM/YYYY with Persian numbers)."""
+    try:
+        from datetime import datetime
+        dt = datetime.strptime(date_str, "%Y-%m-%d").date()
+        return format_jalali(dt, include_weekday=False, short=True)
+    except (ValueError, TypeError):
+        return date_str
+
+
 def render_dashboard(catalog: list[dict[str, Any]]) -> str:
     esc = html.escape
     parts = [
@@ -124,14 +164,32 @@ def render_dashboard(catalog: list[dict[str, Any]]) -> str:
         "<title>بایگانی گزارش‌ها — سردبیر</title>",
         '<link rel="preconnect" href="https://fonts.googleapis.com">',
         '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
-        '<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet">',
+        '<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet">',
+        '<link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/Vazirmatn-Variable.woff2">',
         f"<style>{_DASHBOARD_STYLE}</style>",
+        '<style>'
+        '@font-face {'
+        '  font-family: "Vazirmatn";'
+        '  src: url("/fonts/Vazirmatn-Variable.woff2") format("woff2");'
+        '  font-weight: 100 900;'
+        '  font-display: swap;'
+        '  font-style: normal;'
+        '}'
+        '@font-face {'
+        '  font-family: "Vazirmatn";'
+        '  src: url("/fonts/Vazirmatn-Variable.woff2") format("woff2");'
+        '  font-weight: 100 900;'
+        '  font-display: swap;'
+        '  font-style: italic;'
+        '}'
+        'body { font-family: "Vazirmatn", -apple-system, "Segoe UI", Tahoma, sans-serif; }'
+        '</style>',
         "</head>",
         "<body>",
         "<header>",
         '<div class="kicker">Daily News Collector</div>',
         "<h1>بایگانی گزارش‌ها<i>.</i></h1>",
-        f'<p class="subtitle">{len(catalog)} گزارش</p>',
+        f'<p class="subtitle">{to_persian_numbers(str(len(catalog)))} گزارش</p>',
         '<div class="rule"></div>',
         "</header>",
         '<div class="grid">',
@@ -141,7 +199,7 @@ def render_dashboard(catalog: list[dict[str, Any]]) -> str:
         title = esc(str(entry.get("report_title") or "بدون عنوان"))
         topic = esc(str(entry.get("topic") or ""))
         meta_bits = [
-            esc(str(entry[key]))
+            esc(_format_date_fa(str(entry[key])))
             for key in ("date", "language")
             if entry.get(key)
         ]

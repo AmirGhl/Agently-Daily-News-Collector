@@ -15,8 +15,24 @@ PAGE_HTML = """<!doctype html>
 <title>سردبیر — اتاق فرمان خبر</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
+
+/* ─── Vazirmatn variable font (self-hosted) ─── */
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("/fonts/Vazirmatn-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("/fonts/Vazirmatn-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+  font-style: italic;
+}
 :root{
   --bg:#0a0b0f; --bg-2:#0d0f15; --card:#12141c; --card-2:#171a24;
   --border:#232735; --border-hi:#323848;
@@ -31,7 +47,23 @@ PAGE_HTML = """<!doctype html>
   --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
 }
 @media (prefers-color-scheme: light){
-  :root{
+  
+/* ─── Vazirmatn variable font (self-hosted) ─── */
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("/fonts/Vazirmatn-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("/fonts/Vazirmatn-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+  font-style: italic;
+}
+:root{
     --bg:#f2f3f7; --bg-2:#eceef4; --card:#ffffff; --card-2:#f7f8fb;
     --border:#dfe2ec; --border-hi:#c9cedd;
     --text:#171923; --dim:#5d6474; --faint:#9aa0b0;

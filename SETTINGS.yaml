@@ -12,6 +12,10 @@ TOPICS:
   - open source
   - robotics
   - tech startups
+  - web development
+  - devops
+  - data science
+  - cloud computing
 
 # Shared proxy for model/search/browse. Leave empty if not needed.
 PROXY:
@@ -63,6 +67,9 @@ SEARCH:
     - https://www.theverge.com/rss/index.xml
     - https://feeds.arstechnica.com/arstechnica/index
     - https://www.wired.com/feed/rss
+    - https://blog.google/technology/ai/rss/
+    - https://openai.com/blog/rss.xml
+    - https://www.anthropic.com/rss/feed.xml
 
 BROWSE:
   enable_playwright: false
@@ -122,16 +129,28 @@ SUMMARY:
 # from GitHub trending/new repos, Hacker News, Reddit, Lobsters, dev.to,
 # daily.dev, and Product Hunt with a conversational tone, no web search.
 DEV_PULSE:
+  # بخش‌های فعال — کدوم منبع‌ها چرخانده بشن.
+  # مقادیر مجاز: trending, releases, security, hot_news, products, community
+  # خالی یا حذف = همه فعال.
+  enabled_sections: []
   reddit_subreddits:
     - programming
     - webdev
     - LocalLLaMA
     - MachineLearning
     - artificial
+    - artificialintelligence
     - selfhosted
     - netsec
     - devops
     - ExperiencedDevs
+    - rust
+    - golang
+    - reactjs
+    - typescript
+    - cscareerquestions
+    - opensource
+    - sideproject
   min_hn_points: 80
   min_reddit_score: 100
   min_lobsters_score: 10
@@ -148,8 +167,10 @@ DEV_PULSE:
     - https://github.blog/feed/
     - https://stackoverflow.blog/feed/
     - https://newsletter.pragmaticengineer.com/feed
+    - https://blog.rust-lang.org/feed.xml
+    - https://deno.com/feed.xml
+    - https://go.dev/blog/feed.atom
   #  - https://rsshub.app/twitter/user/OpenAI
-  #  - https://blog.rust-lang.org/feed.xml
   # Optional: limit GitHub trending/new to one language, e.g. python
   github_language:
   # "Fresh Releases" column: repos whose new releases you want summarized
@@ -160,20 +181,32 @@ DEV_PULSE:
     - microsoft/vscode
     - python/cpython
     - nodejs/node
+    - getcursor/cursor
     - anthropics/claude-code
     - ggml-org/llama.cpp
     - huggingface/transformers
     - openai/codex
     - google-gemini/gemini-cli
     - langchain-ai/langchain
+    - langgenius/dify
+    - n8n-io/n8n
     - vllm-project/vllm
     - microsoft/TypeScript
     - golang/go
     - rust-lang/rust
     - facebook/react
+    - vercel/next.js
     - vitejs/vite
     - denoland/deno
+    - astral-sh/ruff
+    - astral-sh/uv
     - comfyanonymous/ComfyUI
+    - anthropics/anthropic-cookbook
+    - microsoft/autogen
+    - crewAIInc/crewAI
+    - hashicorp/terraform
+    - neovim/neovim
+    - zed-industries/zed
   release_window_days: 3
   # "Security Watch" column: package ecosystems to monitor for fresh
   # advisories (pip, npm, maven, nuget, rubygems, go, rust, composer...).
@@ -184,6 +217,9 @@ DEV_PULSE:
     - go
     - rust
     - maven
+    - nuget
+    - rubygems
+    - pub
   security_min_severity: high
   # Your stack: when an item genuinely relates to it, the summary adds one
   # sentence on what it means for you. Leave empty to disable.

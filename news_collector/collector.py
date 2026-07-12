@@ -12,6 +12,7 @@ from agently import Agently
 from tools import create_browse_tool, create_dev_sources_tool, create_rss_tool, create_search_tool
 from workflow import build_daily_news_flow
 
+from .alerts import AlertEngine, build_alert_config
 from .config import AppSettings, ModelConfig
 
 
@@ -53,13 +54,77 @@ class DailyNewsCollector:
         if isinstance(snapshot, dict):
             final = snapshot.get("$final_result")
             if isinstance(final, dict):
+                # Process breaking alerts after successful collection
+                self._process_breaking_alerts(final, normalized_topic)
                 return final
             if "markdown" in snapshot:
+                self._process_breaking_alerts(snapshot, normalized_topic)
                 return snapshot
         raise RuntimeError(
             f"Flow produced no valid result. "
             f"Snapshot keys: {list(snapshot.keys()) if isinstance(snapshot, dict) else type(snapshot)}"
         )
+
+    def _process_breaking_alerts(self, report: dict[str, Any], topic: str) -> None:
+        """Check report stories for breaking news and send alerts."""
+        if not self.settings.delivery.telegram.enabled and not self.settings.delivery.webhook.enabled:
+            return
+
+        try:
+            alert_config = build_alert_config(self.settings)
+            if not alert_config.enabled:
+                return
+
+            engine = AlertEngine(alert_config)
+            columns = report.get("columns") or []
+            for column in columns:
+                if not isinstance(column, dict):
+                    continue
+                for story in column.get("news_list") or []:
+                    if not isinstance(story, dict):
+                        continue
+                    should_alert, match = engine.should_alert(story, topic)
+                    if should_alert:
+                        self.logger.info(
+                            "[Breaking Alert] %s: %s (severity=%d, keywords=%s)",
+                            topic,
+                            story.get("title", "")[:80],
+                            match.severity,
+                            match.matched_keywords,
+                        )
+                        # Fire-and-forget alert delivery
+                        self._deliver_alert(report, story, match, alert_config.channels)
+        except Exception as exc:
+            self.logger.warning("[Alert Processing Failed] %s", exc)
+
+    def _deliver_alert(
+        self,
+        report: dict[str, Any],
+        story: dict[str, Any],
+        match: Any,
+        channels: tuple[str, ...],
+    ) -> None:
+        """Deliver breaking alert via configured channels."""
+        import asyncio
+
+        from .delivery import deliver_alert
+
+        alert_data = {
+            "report_title": report.get("report_title", "Breaking News"),
+            "generated_at": report.get("generated_at", ""),
+            "topic": report.get("topic", ""),
+            "story": story,
+            "match": {
+                "keywords": match.matched_keywords,
+                "cve_ids": match.cve_ids,
+                "severity": match.severity,
+            },
+        }
+
+        try:
+            asyncio.run(deliver_alert(self.settings, alert_data, channels))
+        except Exception as exc:
+            self.logger.warning("[Alert Delivery Failed] %s", exc)
 
     def _configure_agently(self) -> None:
         from dotenv import find_dotenv, load_dotenv

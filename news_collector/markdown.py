@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .textutils import ensure_markdown_rtl, wrap_mixed
+
 
 def _labels_for_language(language: str) -> dict[str, str]:
     normalized = language.lower()
@@ -59,27 +61,33 @@ def render_markdown(
     tldr: list[str] | None = None,
 ) -> str:
     labels = _labels_for_language(language)
+    title = wrap_mixed(report_title, language)
+    topic_str = wrap_mixed(topic, language)
     lines = [
-        f"# {report_title}",
+        f"# {title}",
         "",
         f"> {labels['generated_at']}: {generated_at}",
-        f"> {labels['topic']}: {topic}",
+        f"> {labels['topic']}: {topic_str}",
         "",
     ]
 
     if tldr:
-        lines.extend([f"## {labels['tldr']}", ""])
-        lines.extend(f"- {takeaway}" for takeaway in tldr)
+        lines.append(f"## {labels['tldr']}")
+        lines.append("")
+        for takeaway in tldr:
+            lines.append(f"- {wrap_mixed(takeaway, language)}")
         lines.append("")
 
     for column in columns:
+        col_title = wrap_mixed(column["title"], language)
+        col_prologue = ensure_markdown_rtl(wrap_mixed(str(column.get("prologue", "")), language), language)
         lines.extend(
             [
-                f"## {column['title']}",
+                f"## {col_title}",
                 "",
                 f"### {labels['prologue']}",
                 "",
-                column["prologue"],
+                col_prologue,
                 "",
                 f"### {labels['news_list']}",
                 "",
@@ -87,7 +95,9 @@ def render_markdown(
         )
 
         for news in column["news_list"]:
-            lines.append(f"- [{news.get('title', '')}]({news.get('url', '')})")
+            news_title = wrap_mixed(news.get("title", ""), language)
+            news_url = news.get("url", "")
+            lines.append(f"- [{news_title}]({news_url})")
             meta_parts = []
             if news.get("source"):
                 meta_parts.append(f"{labels['source']}: {news['source']}")
@@ -95,8 +105,10 @@ def render_markdown(
                 meta_parts.append(f"{labels['date']}: {news['date']}")
             if meta_parts:
                 lines.append(f"  - {' | '.join(meta_parts)}")
-            lines.append(f"  - {labels['summary']}: {news.get('summary', '')}")
-            lines.append(f"  - {labels['comment']}: {news.get('recommend_comment', '')}")
+            summary_text = ensure_markdown_rtl(wrap_mixed(str(news.get("summary", "")), language), language)
+            comment_text = ensure_markdown_rtl(wrap_mixed(str(news.get("recommend_comment", "")), language), language)
+            lines.append(f"  - {labels['summary']}: {summary_text}")
+            lines.append(f"  - {labels['comment']}: {comment_text}")
             lines.append("")
 
     lines.extend(

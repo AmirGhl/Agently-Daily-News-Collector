@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import threading
+import uuid
 import webbrowser
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -87,6 +89,11 @@ class WebUIServer:
         self.logger = configure_logging(debug=False, log_dir=root_dir / "logs")
         self.logger.addHandler(_DequeLogHandler(self.log_lines))
         self.schedule_path = settings_path.parent / "schedule.json"
+        
+        # SSE progress streaming
+        self.progress_queues: dict[str, asyncio.Queue] = {}
+        self.progress_lock = threading.Lock()
+        
         threading.Thread(target=self._schedule_loop, daemon=True).start()
 
     # ---- state helpers -------------------------------------------------
@@ -143,11 +150,19 @@ class WebUIServer:
             self.running = True
             self.current_topic = topic
             self.last_error = None
-        thread = threading.Thread(target=self._run, args=(topic, params), daemon=True)
+        
+        # Generate run_id for SSE tracking
+        run_id = str(uuid.uuid4())[:8]
+        self._current_run_id = run_id
+        self._run_topics[run_id] = topic
+        
+        thread = threading.Thread(target=self._run, args=(topic, params, run_id), daemon=True)
         thread.start()
-        return True, "started"
+        return True, run_id
 
-    def _run(self, topic: str, params: dict[str, Any]) -> None:
+    def _run(self, topic: str, params: dict[str, Any], run_id: str) -> None:
+        self._push_progress(run_id, "initializing", "Preparing run...", 5)
+        
         from .collector import DailyNewsCollector
         from .delivery import deliver_report
 
@@ -160,9 +175,11 @@ class WebUIServer:
             language = str(params.get("language") or "").strip()
             if language:
                 settings.workflow.output_language = language
+            self._push_progress(run_id, "config", "Configuration loaded", 10)
 
             # Fail fast when the model endpoint is down — otherwise the whole
             # flow runs to the end and quietly emits an empty report.
+            self._push_progress(run_id, "model_check", "Checking model connection...", 15)
             probe = self.test_model_connection({})
             probe_message = str(probe.get("message") or "")
             # connection_failed = endpoint dead; http_5xx = endpoint up but sick
@@ -177,9 +194,12 @@ class WebUIServer:
                 )
                 with self.lock:
                     self.last_error = f"model_unreachable: {probe.get('message')}"
+                self._push_progress(run_id, "error", "Model unreachable", 100)
                 return
+            self._push_progress(run_id, "model_ready", "Model connection OK", 20)
 
             if params.get("weekly"):
+                self._push_progress(run_id, "weekly", "Generating weekly digest...", 30)
                 import asyncio
 
                 from .collector import DailyNewsCollector
@@ -201,6 +221,7 @@ class WebUIServer:
                         self.last_error = "no_reports_last_7_days"
                     else:
                         self.last_result_title = str(result.get("report_title") or topic)
+                self._push_progress(run_id, "complete", "Weekly digest ready", 100)
                 return
             max_columns = params.get("max_columns")
             if isinstance(max_columns, int) and max_columns > 0:
@@ -213,12 +234,14 @@ class WebUIServer:
 
             from .collector import run_with_model_fallback
 
+            self._push_progress(run_id, "collection", "Collecting news...", 30)
             result = run_with_model_fallback(
                 settings=settings,
                 root_dir=self.root_dir,
                 logger=self.logger,
                 topic=topic,
             )
+            self._push_progress(run_id, "rendering", "Rendering report...", 80)
             if not (result.get("columns") or []):
                 self.logger.error(
                     "[Empty Report] no columns were produced (model calls failed?) — "
@@ -226,21 +249,45 @@ class WebUIServer:
                 )
                 with self.lock:
                     self.last_error = "empty_report"
+                self._push_progress(run_id, "error", "No columns produced", 100)
                 return
             with self.lock:
                 self.last_result_title = str(result.get("report_title") or topic)
+            self._push_progress(run_id, "delivery", "Delivering report...", 90)
             if settings.delivery.telegram.enabled or settings.delivery.webhook.enabled:
                 import asyncio
 
                 asyncio.run(deliver_report(settings, result, self.logger))
+            self._push_progress(run_id, "complete", "Report ready!", 100)
         except Exception as exc:
             self.logger.exception("WebUI run failed: %s", exc)
             with self.lock:
                 self.last_error = str(exc)
+            self._push_progress(run_id, "error", str(exc), 100)
         finally:
             with self.lock:
                 self.running = False
                 self.current_topic = None
+
+    def _push_progress(self, run_id: str, step: str, detail: str, progress: int) -> None:
+        """Push a progress update to the SSE queue for a run."""
+        import asyncio
+        queue = None
+        with self.progress_lock:
+            queue = self._progress_queues.get(run_id)
+        if queue:
+            try:
+                # Use asyncio.run_coroutine_threadsafe to push to async queue from thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(queue.put({
+                    "step": step,
+                    "detail": detail,
+                    "progress": progress,
+                }))
+                loop.close()
+            except Exception:
+                pass
 
     # ---- daily schedule --------------------------------------------------
     # Stored in its own schedule.json so it never interferes with the YAML
@@ -357,9 +404,15 @@ class WebUIServer:
         settings = self.load_settings()
         preset = settings.model.preset or ("custom" if "localhost" not in settings.model.base_url else "ollama")
         key_env = self._key_env_for(preset)
+        from .dev_pulse import DEV_PULSE_SECTIONS
         return {
             "presets": [
-                {"id": name, "default_model": meta["default_model"], "key_env": meta["api_key_env"]}
+                {
+                    "id": name,
+                    "default_model": meta["default_model"],
+                    "key_env": meta["api_key_env"],
+                    "available_models": meta.get("available_models", []),
+                }
                 for name, meta in MODEL_PRESETS.items()
             ],
             "current": {
@@ -389,6 +442,15 @@ class WebUIServer:
                 "watch_repos": list(settings.dev_pulse.watch_repos),
                 "extra_feeds": list(settings.dev_pulse.extra_feeds),
                 "github_language": settings.dev_pulse.github_language or "",
+                "enabled_sections": list(settings.dev_pulse.enabled_sections),
+                "section_labels": [
+                    {
+                        "id": sid,
+                        "title": sec["column_title"],
+                        "description": sec.get("description", ""),
+                    }
+                    for sid, sec in DEV_PULSE_SECTIONS.items()
+                ],
             },
         }
 
@@ -443,7 +505,7 @@ class WebUIServer:
         dev_params = params.get("dev_pulse")
         if isinstance(dev_params, dict):
             dev_override = dict(overrides.get("DEV_PULSE") or {})
-            for key in ("reddit_subreddits", "watch_repos", "extra_feeds"):
+            for key in ("reddit_subreddits", "watch_repos", "extra_feeds", "enabled_sections"):
                 value = dev_params.get(key)
                 if isinstance(value, list):
                     dev_override[key] = [str(v).strip() for v in value if str(v).strip()]
@@ -801,8 +863,21 @@ def _make_handler(server_state: WebUIServer):
 
             if path == "/api/run":
                 ok, message = server_state.start_run(payload)
-                status = 200 if ok else (409 if message == "already_running" else 400)
-                self._send_json({"ok": ok, "message": message}, status=status)
+                if ok:
+                    run_id = getattr(server_state, '_current_run_id', '')
+                    self._send_json({"ok": ok, "message": message, "run_id": run_id}, status=200)
+                else:
+                    status = 200 if ok else (409 if message == "already_running" else 400)
+                    self._send_json({"ok": ok, "message": message}, status=status)
+            elif path == "/api/progress":
+                # SSE endpoint for progress streaming
+                run_id = None
+                if "run_id=" in self.path:
+                    run_id = self.path.split("run_id=")[1].split("&")[0]
+                if run_id:
+                    self._handle_sse_progress(server_state, run_id)
+                else:
+                    self._send_json({"error": "run_id required"}, status=400)
             elif path == "/api/settings":
                 result = server_state.save_settings(payload)
                 self._send_json(result, status=200 if result.get("ok") else 400)
@@ -822,6 +897,49 @@ def _make_handler(server_state: WebUIServer):
                 self._send_json({"error": "not_found"}, status=404)
 
     return Handler
+
+
+    def _handle_sse_progress(self, server_state: WebUIServer, run_id: str) -> None:
+        """Handle SSE connection for progress streaming."""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "keep-alive")
+        self.end_headers()
+
+        # Create a queue for this run_id
+        queue = asyncio.Queue()
+        with server_state.progress_lock:
+            server_state.progress_queues[run_id] = queue
+
+        try:
+            # Send initial connection message
+            self.wfile.write(b"data: {\"type\": \"connected\", \"run_id\": \"" + run_id.encode() + b"\"}\n\n")
+            self.wfile.flush()
+
+            # Stream events from queue
+            while True:
+                try:
+                    # Use asyncio.run_coroutine_threadsafe to get from async queue
+                    import asyncio
+                    future = asyncio.run_coroutine_threadsafe(queue.get(), asyncio.get_event_loop())
+                    event = future.result(timeout=30)
+                    if event is None:  # End signal
+                        break
+                    self.wfile.write(f"data: {json.dumps(event, ensure_ascii=False)}\n\n".encode("utf-8"))
+                    self.wfile.flush()
+                except asyncio.TimeoutError:
+                    # Send keepalive
+                    self.wfile.write(b": keepalive\n\n")
+                    self.wfile.flush()
+                except Exception:
+                    break
+        except Exception:
+            pass
+        finally:
+            # Clean up
+            with server_state.progress_lock:
+                server_state.progress_queues.pop(run_id, None)
 
 
 def serve(
