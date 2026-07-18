@@ -167,6 +167,17 @@ html[data-theme="ink"] .figure img{{filter:saturate(.88) brightness(.94)}}
 .why{{margin-top:13px;padding-inline-start:12px;border-inline-start:2px solid color-mix(in srgb,var(--accent) 38%,var(--line))}}
 .why b{{display:block;font-size:10px;font-weight:600;color:var(--faint)}}
 .why p{{font-size:12.5px;color:var(--dim);line-height:2;margin-top:2px;unicode-bidi:plaintext}}
+.decision{{margin-top:13px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--well)}}
+.decision-head{{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:9px;color:var(--faint)}}
+.decision-pill{{padding:2px 7px;border:1px solid var(--linehi);border-radius:999px;font-weight:700;letter-spacing:.05em;color:var(--accent)}}
+.decision-pill.u-high{{color:var(--bad);border-color:var(--bad)}} .decision-pill.u-medium{{color:var(--warn);border-color:var(--warn)}} .decision-pill.u-low{{color:var(--ok);border-color:var(--ok)}}
+.decision p{{font-size:12.5px;color:var(--dim);line-height:1.9;margin-top:5px;unicode-bidi:plaintext}}
+.morning{{margin:18px 0 8px;padding:16px;border:1px solid var(--line);border-radius:10px;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 9%,var(--surface)),var(--surface))}}
+.morning h2{{font-family:var(--serif);font-size:15px;margin-bottom:10px}}
+.morning-list{{display:grid;gap:8px}}
+.morning-item{{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:start;padding-top:8px;border-top:1px solid var(--line)}}
+.morning-item:first-child{{border-top:none;padding-top:0}}
+.morning-item a{{font-size:12.5px;line-height:1.7;text-decoration:none;unicode-bidi:plaintext}} .morning-item a:hover{{color:var(--accent)}}
 .story .foot{{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}}
 .story .lnk{{
   display:inline-block;font-family:var(--mono);font-size:10px;color:var(--accent);
@@ -378,6 +389,18 @@ footer a{{color:var(--accent);text-decoration:none}}
     </ol>
   </section>
 
+  <section class="morning" x-show="morningStories.length > 0">
+    <h2 x-text="ui.morning_brief"></h2>
+    <div class="morning-list">
+      <template x-for="story in morningStories" :key="story.url || story.title">
+        <div class="morning-item">
+          <span class="decision-pill" :class="'u-' + story.urgency" x-text="decisionLabels[story.action] || story.action"></span>
+          <a :href="story.url" target="_blank" rel="noreferrer" x-text="story.title"></a>
+        </div>
+      </template>
+    </div>
+  </section>
+
   <!-- Table of Contents -->
   <nav class="toc" x-show="columns.length > 0" aria-label="{{ui.toc}}">
     <template x-for="(col, cIdx) in columns" :key="col.title">
@@ -410,6 +433,10 @@ footer a{{color:var(--accent);text-decoration:none}}
           <img :src="news.image" :alt="news.title" loading="lazy">
         </div>
         <div class="body" x-html="news.summary" x-show="news.summary"></div>
+        <aside class="decision" x-show="news.action">
+          <div class="decision-head"><b x-text="ui.decision"></b><span class="decision-pill" :class="'u-' + news.urgency" x-text="decisionLabels[news.action] || news.action"></span></div>
+          <p dir="auto" x-text="news.action_reason"></p>
+        </aside>
         <aside class="why" x-show="news.recommend_comment">
           <b x-text="ui.why_pick"></b>
           <p dir="auto" x-text="news.recommend_comment"></p>
@@ -460,6 +487,7 @@ const UI_LABELS = {ui_labels_json};
 const IS_RTL = {is_rtl};
 const KIND_LABELS = {kind_labels_json};
 const KIND_LABELS_FULL = {kind_labels_full_json};
+const DECISION_LABELS = {decision_labels_json};
 
 /* ─── Toast helper ─── */
 function toast(message, good = true) {{
@@ -522,8 +550,15 @@ function reportApp() {{
     tldr: {tldr_json},
     columns: {columns_json},
     kindLabels: KIND_LABELS,
+    decisionLabels: DECISION_LABELS,
     ui: UI_LABELS,
     activeToc: 0,
+    get morningStories() {{
+      const priority = {{'ACT NOW': 0, PLAN: 1, EXPLORE: 2, MONITOR: 3, IGNORE: 4}};
+      return this.columns.reduce((stories, column) => stories.concat(column.news_list || []), [])
+        .sort((left, right) => (priority[left.action] ?? 9) - (priority[right.action] ?? 9))
+        .slice(0, 5);
+    }},
     get kickerHtml() {{
       return `${{IS_RTL ? '<div style="direction:rtl">' : ''}}<span style="font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--faint);display:flex;gap:14px;flex-wrap:wrap;">${{this.generatedAt.split(' ')[0]}} ${{IS_RTL ? '·' : '·'}} <b style="color:var(--accent);font-weight:600">${{this.topic}}</b></span>${{IS_RTL ? '</div>' : ''}}`;
     }},
@@ -590,6 +625,7 @@ function reportApp() {{
             <h3><a href="${{n.url}}" target="_blank" rel="noreferrer">${{n.title}}</a></h3>
             ${{n.image ? '<div class="figure"><img src="' + n.image + '" alt="" loading="lazy"></div>' : ''}}
             ${{n.summary ? '<div class="body">' + n.summary + '</div>' : ''}}
+            ${{n.action ? '<aside class="decision"><div class="decision-head"><b>' + UI_LABELS.decision + '</b><span class="decision-pill u-' + n.urgency + '">' + (DECISION_LABELS[n.action] || n.action) + '</span></div><p dir="auto">' + n.action_reason + '</p></aside>' : ''}}
             ${{n.recommend_comment ? '<aside class="why"><b>' + UI_LABELS.why_pick + '</b><p dir="auto">' + n.recommend_comment + '</p></aside>' : ''}}
             ${{n.url ? '<div class="foot"><a class="lnk" href="' + n.url + '" target="_blank" rel="noreferrer">' + n.url + ' ↗</a></div>' : ''}}
           </div>

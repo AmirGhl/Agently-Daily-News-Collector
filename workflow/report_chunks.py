@@ -8,6 +8,7 @@ from typing import Any, Callable
 
 from agently import TriggerFlowRuntimeData
 
+from news_collector.decisions import enrich_columns_actions
 from news_collector.dashboard import update_dashboard
 from news_collector.html_report import render_html
 from news_collector.markdown import render_markdown
@@ -68,6 +69,9 @@ def create_render_report_chunk(
         logger = require_logger(data)
         columns = _dedupe_columns(
             [column for column in data.value if isinstance(column, dict)]
+        )
+        columns = enrich_columns_actions(
+            columns, language=config.settings.workflow.output_language
         )
         report_title = str(
             outline.get("report_title")

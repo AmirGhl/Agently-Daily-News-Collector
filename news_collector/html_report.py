@@ -46,6 +46,8 @@ _UI_LABELS = {
         "export_notion": "Notion",
         "export_obsidian": "Obsidian",
         "export_markdown": "Markdown",
+        "morning_brief": "خلاصهٔ صبحگاهی",
+        "decision": "اقدام پیشنهادی",
     },
     "en": {
         "toc": "Sections",
@@ -69,6 +71,25 @@ _UI_LABELS = {
         "export_notion": "Notion",
         "export_obsidian": "Obsidian",
         "export_markdown": "Markdown",
+        "morning_brief": "Morning brief",
+        "decision": "Suggested action",
+    },
+}
+
+_DECISION_LABELS = {
+    "fa": {
+        "ACT NOW": "همین حالا اقدام کن",
+        "PLAN": "برنامه‌ریزی کن",
+        "EXPLORE": "بررسی کن",
+        "MONITOR": "زیر نظر بگیر",
+        "IGNORE": "فعلاً رد کن",
+    },
+    "en": {
+        "ACT NOW": "ACT NOW",
+        "PLAN": "PLAN",
+        "EXPLORE": "EXPLORE",
+        "MONITOR": "MONITOR",
+        "IGNORE": "IGNORE",
     },
 }
 
@@ -455,6 +476,10 @@ def _ui_labels(language: str) -> dict[str, str]:
     return _UI_LABELS["fa" if _is_rtl_language(language) else "en"]
 
 
+def _decision_labels(language: str) -> dict[str, str]:
+    return _DECISION_LABELS["fa" if _is_rtl_language(language) else "en"]
+
+
 def _anchor(title: str, index: int) -> str:
     slug = re.sub(r"[^\w]+", "-", title.lower()).strip("-")
     return f"col-{index}-{slug or 'section'}"
@@ -517,6 +542,7 @@ def render_html(
 ) -> str:
     labels = _labels_for_language(language)
     ui = _ui_labels(language)
+    decision_labels = _decision_labels(language)
     direction = "rtl" if _is_rtl_language(language) else "ltr"
     esc = html.escape
     wm = lambda t: wrap_mixed(t, language)
@@ -577,6 +603,9 @@ def render_html(
                 "image": esc(str(news.get("image") or ""), quote=True) if str(news.get("image") or "").startswith(("http://", "https://")) else "",
                 "summary": _paragraphs(strip_greeting(str(news.get("summary") or news.get("brief") or "").strip())),
                 "recommend_comment": esc(strip_greeting(str(news.get("recommend_comment") or "").strip())),
+                "action": esc(str(news.get("action") or "EXPLORE").strip()),
+                "urgency": esc(str(news.get("urgency") or "low").strip().lower()),
+                "action_reason": esc(strip_greeting(str(news.get("action_reason") or "").strip())),
             })
         
         prologue = strip_greeting(str(column.get("prologue") or "").strip())
@@ -599,6 +628,7 @@ def render_html(
         "is_rtl": direction == "rtl",
         "kind_labels": kind_labels,
         "kind_labels_full": kind_labels_full,
+        "decision_labels": decision_labels,
     }
 
     # Use the interactive template
@@ -611,6 +641,7 @@ def render_html(
         is_rtl=direction == "rtl",
         kind_labels_json=json.dumps(kind_labels, ensure_ascii=False),
         kind_labels_full_json=json.dumps(kind_labels_full, ensure_ascii=False),
+        decision_labels_json=json.dumps(decision_labels, ensure_ascii=False),
         report_title_json=json.dumps(report_title, ensure_ascii=False),
         generated_at_json=json.dumps(esc(generated_at), ensure_ascii=False),
         topic_json=json.dumps(esc(topic), ensure_ascii=False),

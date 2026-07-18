@@ -11,6 +11,7 @@ instruct:
   - "CRITICAL: never open the prologue or any comment with a greeting (no 'سلام', 'Hello', 'خب'...); start with substance."
   - prologue should be 2 to 4 sentences in {info.language} that genuinely orient the reader - what stands out in this section today, what the common thread is, and why it deserves attention right now. Never write generic filler like 'in this section we look at...'.
   - recommend_comment must explain the practical why-it-matters in 1 to 2 sentences - what the reader can do with it, what risk it removes, or what trend it signals. Never a restatement of the title.
+  - For every selected story, set one action: ACT NOW, PLAN, EXPLORE, MONITOR, or IGNORE. Set urgency to high, medium, or low. action_reason must be one concise, evidence-based sentence in {info.language}; never imply certainty beyond the source.
   - When useful, cite key stories with Markdown links like [title](url).
 output:
   prologue:
@@ -24,4 +25,13 @@ output:
         recommend_comment:
           $type: str
           $desc: refined why-it-matters note for the selected story
+        action:
+          $type: str
+          $desc: one of ACT NOW, PLAN, EXPLORE, MONITOR, IGNORE
+        urgency:
+          $type: str
+          $desc: one of high, medium, low
+        action_reason:
+          $type: str
+          $desc: concise evidence-based reason for the suggested action
     $desc: ordered list of stories to keep in the final column

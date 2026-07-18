@@ -43,6 +43,7 @@ _LABELS = {
         "end": "پایان گزارش امروز",
         "attached": "نسخهٔ کامل HTML پیوست شد — آفلاین و قابل چاپ.",
         "of": "از",
+        "action": "اقدام پیشنهادی",
     },
     "en": {
         "headlines": "Today's headlines",
@@ -54,6 +55,7 @@ _LABELS = {
         "end": "End of today's briefing",
         "attached": "Full HTML edition attached — offline & printable.",
         "of": "of",
+        "action": "Suggested action",
     },
 }
 
@@ -213,6 +215,8 @@ def compose_story_message(
 
     comment = strip_greeting(str(news.get("recommend_comment") or "").strip())
     summary = strip_greeting(str(news.get("summary") or news.get("brief") or "").strip())
+    action = str(news.get("action") or "").strip()
+    action_reason = strip_greeting(str(news.get("action_reason") or "").strip())
 
     # Fixed parts first; summary and comment absorb whatever room remains.
     fixed_len = len(header) + len(footer) + 8  # separators
@@ -225,6 +229,11 @@ def compose_story_message(
         room -= len(body_parts[-1])
     if comment and room > 60:
         body_parts.append(f"💡 <i>{escape(_trim(comment, max(room - 20, 60)))}</i>")
+    if action and room > 40:
+        action_text = f"🎯 <b>{labels['action']}:</b> {escape(action)}"
+        if action_reason:
+            action_text += f" — {escape(_trim(action_reason, max(room - len(action_text), 60)))}"
+        body_parts.append(action_text)
 
     message = header
     if body_parts:

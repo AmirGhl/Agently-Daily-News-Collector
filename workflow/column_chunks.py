@@ -365,6 +365,9 @@ async def _write_column(
                 "source": news.get("source", ""),
                 "date": news.get("date", ""),
                 "recommend_comment": news.get("recommend_comment", ""),
+                "action": news.get("action", ""),
+                "urgency": news.get("urgency", ""),
+                "action_reason": news.get("action_reason", ""),
             }
         )
 
@@ -385,6 +388,9 @@ async def _write_column(
                 "prologue",
                 "news_list[*].id",
                 "news_list[*].recommend_comment",
+                "news_list[*].action",
+                "news_list[*].urgency",
+                "news_list[*].action_reason",
             ]
         )
     )
@@ -405,6 +411,10 @@ async def _write_column(
         refined_comment = strip_greeting(str(item.get("recommend_comment") or "").strip())
         if refined_comment:
             final_item["recommend_comment"] = refined_comment
+        for field in ("action", "urgency", "action_reason"):
+            value = str(item.get(field) or "").strip()
+            if value:
+                final_item[field] = value
         final_news_list.append(final_item)
 
     if not final_news_list:

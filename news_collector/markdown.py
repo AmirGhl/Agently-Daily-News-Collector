@@ -20,6 +20,7 @@ def _labels_for_language(language: str) -> dict[str, str]:
             "model": "模型",
             "tldr": "要点速览",
             "read_source": "阅读原文",
+            "action": "建议行动",
         }
     if "persian" in normalized or "farsi" in normalized or normalized.startswith("fa"):
         return {
@@ -34,6 +35,7 @@ def _labels_for_language(language: str) -> dict[str, str]:
             "model": "مدل",
             "tldr": "نکات کلیدی",
             "read_source": "مشاهده منبع",
+            "action": "اقدام پیشنهادی",
         }
     return {
         "generated_at": "Generated At",
@@ -47,6 +49,7 @@ def _labels_for_language(language: str) -> dict[str, str]:
         "model": "Model",
         "tldr": "Key Takeaways",
         "read_source": "Read the source",
+        "action": "Suggested action",
     }
 
 
@@ -109,6 +112,10 @@ def render_markdown(
             comment_text = ensure_markdown_rtl(wrap_mixed(str(news.get("recommend_comment", "")), language), language)
             lines.append(f"  - {labels['summary']}: {summary_text}")
             lines.append(f"  - {labels['comment']}: {comment_text}")
+            action = str(news.get("action") or "").strip()
+            action_reason = ensure_markdown_rtl(wrap_mixed(str(news.get("action_reason") or ""), language), language)
+            if action:
+                lines.append(f"  - {labels['action']}: {action}{': ' + action_reason if action_reason else ''}")
             lines.append("")
 
     lines.extend(
